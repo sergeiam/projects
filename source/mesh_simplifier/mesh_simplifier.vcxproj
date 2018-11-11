@@ -150,19 +150,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\xr\core.cpp" />
     <ClCompile Include="..\xr\heightfield_simplifier.cpp" />
     <ClCompile Include="..\xr\mesh.cpp" />
     <ClCompile Include="..\xr\mesh_simplifier.cpp" />
-    <ClCompile Include="..\xr_core\core.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\xr\core.h" />
     <ClInclude Include="..\xr\heightfield_simplifier.h" />
+    <ClInclude Include="..\xr\math.h" />
     <ClInclude Include="..\xr\mesh.h" />
     <ClInclude Include="..\xr\mesh_simplifier.h" />
-    <ClInclude Include="..\xr_core\core.h" />
-    <ClInclude Include="..\xr_core\math.h" />
-    <ClInclude Include="..\xr_core\vector.h" />
+    <ClInclude Include="..\xr\vector.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

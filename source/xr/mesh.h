@@ -1,8 +1,8 @@
 #pragma once
 
-#include <xr_core/core.h>
-#include <xr_core/math.h>
-#include <xr_core/vector.h>
+#include <xr/core.h>
+#include <xr/math.h>
+#include <xr/vector.h>
 
 
 namespace xr
