@@ -1,0 +1,58 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fidel_game", "..\source\fidel_game\fidel_game.vcxproj", "{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mesh_simplifier", "..\source\mesh_simplifier\mesh_simplifier.vcxproj", "{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "distance_to_image", "..\source\distance_to_image\distance_to_image.vcxproj", "{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "quantize_geomap", "..\source\quantize_geomap\quantize_geomap.vcxproj", "{2631A546-7137-4430-A6FA-050D735EFFC7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Debug|x64.ActiveCfg = Debug|x64
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Debug|x64.Build.0 = Debug|x64
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Debug|x86.ActiveCfg = Debug|Win32
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Debug|x86.Build.0 = Debug|Win32
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Release|x64.ActiveCfg = Release|x64
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Release|x64.Build.0 = Release|x64
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Release|x86.ActiveCfg = Release|Win32
+		{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}.Release|x86.Build.0 = Release|Win32
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Debug|x64.ActiveCfg = Debug|x64
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Debug|x64.Build.0 = Debug|x64
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Debug|x86.ActiveCfg = Debug|Win32
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Debug|x86.Build.0 = Debug|Win32
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Release|x64.ActiveCfg = Release|x64
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Release|x64.Build.0 = Release|x64
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Release|x86.ActiveCfg = Release|Win32
+		{00F7FE2F-DE7F-474C-9733-7F6C31DF76EF}.Release|x86.Build.0 = Release|Win32
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Debug|x64.ActiveCfg = Debug|x64
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Debug|x64.Build.0 = Debug|x64
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Debug|x86.ActiveCfg = Debug|Win32
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Debug|x86.Build.0 = Debug|Win32
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Release|x64.ActiveCfg = Release|x64
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Release|x64.Build.0 = Release|x64
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Release|x86.ActiveCfg = Release|Win32
+		{4955ACAC-D4B8-477D-B42D-B912ABF74EB7}.Release|x86.Build.0 = Release|Win32
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Debug|x64.ActiveCfg = Debug|x64
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Debug|x64.Build.0 = Debug|x64
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Debug|x86.ActiveCfg = Debug|Win32
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Debug|x86.Build.0 = Debug|Win32
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Release|x64.ActiveCfg = Release|x64
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Release|x64.Build.0 = Release|x64
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Release|x86.ActiveCfg = Release|Win32
+		{2631A546-7137-4430-A6FA-050D735EFFC7}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
