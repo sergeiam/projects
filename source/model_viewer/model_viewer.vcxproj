@@ -22,7 +22,7 @@
     <ProjectGuid>{DB6DA887-0BB7-4675-AFA0-B9E7CE24F84E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>model_viewer</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -71,12 +71,18 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)..\binaries\$(ProjectName)\</OutDir>
+    <IntDir>$(SolutionDir)..\intermediate\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName).$(Configuration)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)..\binaries\$(ProjectName)\</OutDir>
+    <IntDir>$(SolutionDir)..\intermediate\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName).$(Configuration)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -145,15 +151,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\xr\core.cpp" />
-    <ClCompile Include="..\xr\main_window.cpp" />
     <ClCompile Include="..\xr\mesh.cpp" />
+    <ClCompile Include="..\xr\window.cpp" />
+    <ClCompile Include="model_viewer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\xr\core.h" />
-    <ClInclude Include="..\xr\main_window.h" />
     <ClInclude Include="..\xr\math.h" />
     <ClInclude Include="..\xr\mesh.h" />
     <ClInclude Include="..\xr\vector.h" />
+    <ClInclude Include="..\xr\window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

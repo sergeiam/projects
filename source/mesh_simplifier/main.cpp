@@ -6,7 +6,7 @@
 #include <xr/heightfield_simplifier.h>
 #include <xr/mesh.h>
 
-#define SIMPLIFICATION_RATIO	0.05f    // how much from the original mesh we would like to keep as face count
+#define SIMPLIFICATION_RATIO	0.15f    // how much from the original mesh we would like to keep as face count
 //#define SIMPLIFICATION_ANGLE	35.0f
 
 #define INPUT_FILENAME "hf42k.raw"

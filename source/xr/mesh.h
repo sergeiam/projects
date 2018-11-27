@@ -33,6 +33,12 @@ namespace xr
 		VECTOR<Vec4>	vertex_normals;
 		VECTOR<VECTOR<int>, false>	vertex_faces;
 
+		VECTOR<Vec2>	tex_coords1, tex_coords2;
+		VECTOR<FACE>	t_faces;
+
+		VECTOR<Vec4>	normals;
+		VECTOR<FACE>	n_faces;
+
 		void	simplify(float degrees_tollerance);
 
 		void	compact_vertices();
@@ -47,5 +53,6 @@ namespace xr
 		void	clear();
 
 		bool	write_obj(const char* file);
+		bool	read_obj(const char* file);
 	};
 }

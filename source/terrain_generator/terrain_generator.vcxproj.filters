@@ -2,28 +2,34 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="source">
-      <UniqueIdentifier>{bcc9f540-3a7c-4503-9950-6a48afc5cc86}</UniqueIdentifier>
+      <UniqueIdentifier>{d494a679-34bd-4b7d-88f1-0d90c652c4e6}</UniqueIdentifier>
     </Filter>
     <Filter Include="source\xr">
-      <UniqueIdentifier>{83545fe5-f15d-48ca-b722-5adac31d38c2}</UniqueIdentifier>
+      <UniqueIdentifier>{9b52b993-4b89-4ad3-916f-333681b3714c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\xr\core.cpp">
       <Filter>source\xr</Filter>
     </ClCompile>
+    <ClCompile Include="..\xr\heightfield_simplifier.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
     <ClCompile Include="..\xr\mesh.cpp">
       <Filter>source\xr</Filter>
     </ClCompile>
-    <ClCompile Include="..\xr\window.cpp">
-      <Filter>source\xr</Filter>
+    <ClCompile Include="terrain_generator.cpp">
+      <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="model_viewer.cpp">
+    <ClCompile Include="heightfield.cpp">
       <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\xr\core.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\heightfield_simplifier.h">
       <Filter>source\xr</Filter>
     </ClInclude>
     <ClInclude Include="..\xr\math.h">
@@ -35,8 +41,8 @@
     <ClInclude Include="..\xr\vector.h">
       <Filter>source\xr</Filter>
     </ClInclude>
-    <ClInclude Include="..\xr\window.h">
-      <Filter>source\xr</Filter>
+    <ClInclude Include="heightfield.h">
+      <Filter>source</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

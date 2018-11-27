@@ -37,6 +37,9 @@ namespace xr
 		T* begin() { return m_ptr; }
 		T* end() { return m_ptr ? m_ptr + m_size : m_ptr; }
 
+		T& front() { return m_ptr[0]; }
+		T& back() { return m_ptr[m_size - 1]; }
+
 		void clear()
 		{
 			m_size = 0;

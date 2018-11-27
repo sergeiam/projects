@@ -111,6 +111,15 @@ namespace xr
 		}
 	}
 
+	void MESH::clear()
+	{
+		positions.clear();
+		faces.clear();
+		face_normals.clear();
+		vertex_normals.clear();
+		vertex_faces.clear();
+	}
+
 	bool MESH::write_obj(const char* filename)
 	{
 		FILE* fp = FILE::open(filename, "wb");
@@ -130,12 +139,86 @@ namespace xr
 		return true;
 	}
 
-	void MESH::clear()
+	bool MESH::read_obj(const char* filename)
 	{
-		positions.clear();
-		faces.clear();
-		face_normals.clear();
-		vertex_normals.clear();
-		vertex_faces.clear();
+		clear();
+
+		FILE* fp = FILE::open(filename, "wb");
+		if (!fp) {
+			log("ERROR: can not open '%s' file!\n", filename);
+			return false;
+		}
+
+		while (!fp->eof())
+		{
+			char line[1024];
+			fp->read_line(line, 1024);
+
+			switch (line[0])
+			{
+				case 'm': break;
+				case 'u': break;
+				case 'v':
+					if (line[1] == 't') {
+						float u, v;
+						sscanf(line + 3, "%f %f", &u, &v);
+						v = 1.0f - v;
+						tex_coords1.push_back(Vec2(u, v));
+					}
+					else if (line[1] == 'n') {
+						Vec4 n;
+						sscanf(line + 3, "%f %f %f", &n.x, &n.y, &n.z);
+						vertex_normals.push_back(n);
+					}
+					else if (line[1] == ' ') {
+						Vec4 pos;
+						sscanf(line + 2, "%f %f %f", &pos.x, &pos.y, &pos.z);
+						positions.push_back(pos);
+					}
+					break;
+				case 'f':
+				{
+					FACE pf, tf, nf;
+					const char* p = line + 2;
+
+					int components = 1;
+					if (strchr(p, '/'))
+					{
+						components = strchr(strchr(p, '/'), '/') ? 3 : 2;
+					}
+
+					for (int index = 0; p; )
+					{
+						switch (components)
+						{
+							case 1: sscanf(p, "%d", &pf.i[index]); break;
+							case 2: sscanf(p, "%d/%d", &pf.i[index], &tf.i[index]); break;
+							case 3: sscanf(p, "%d/%d/%d", &pf.i[index], &tf.i[index], &nf.i[index]); break;
+						}
+
+						pf.i[index] += (pf.i[index] > 0) ? -1 : positions.size();
+						if (components > 1) tf.i[index] += (tf.i[index] > 0) ? -1 : tex_coords1.size();
+						if( components > 2) nf.i[index] += (nf.i[index] > 0) ? -1 : normals.size();
+
+						if (index == 2)
+						{
+							faces.push_back(pf);
+							if(components > 1) t_faces.push_back(tf);
+							if(components > 2) n_faces.push_back(nf);
+						}
+						else
+							index++;
+
+						p = strchr(p + 1, ' ');
+						if (!p)
+							break;
+					}
+					break;
+				}
+			}
+		}
+
+		delete fp;
+		return true;
 	}
 }

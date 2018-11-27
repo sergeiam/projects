@@ -10,9 +10,9 @@ namespace xr
 	{
 		::FILE*	m_fp;
 		char	m_buffer[2048];
-		int		m_pos;
+		int		m_pos, m_buffer_size;
 
-		FILE_STDIO(::FILE* fp) : m_fp(fp), m_pos(0) {}
+		FILE_STDIO(::FILE* fp) : m_fp(fp), m_pos(0), m_buffer_size(0) {}
 
 		virtual ~FILE_STDIO()
 		{
@@ -52,7 +52,48 @@ namespace xr
 		}
 		virtual int read(void* ptr, int size)
 		{
-			return fread(ptr, 1, size, m_fp);
+			int read_size = 0;
+			while (read_size < size)
+			{
+				if (m_pos == m_buffer_size)
+				{
+					m_buffer_size = fread(m_buffer, 1, 2048, m_fp);
+					if (!m_buffer_size) return read_size;
+					m_pos = 0;
+				}
+
+				int sz = xr::Min(m_buffer_size - m_pos, size - read_size);
+				memcpy(ptr, m_buffer + m_pos, sz);
+				ptr = (u8*)ptr + sz;
+				m_pos += sz;
+				read_size += sz;
+			}
+			return read_size;
+		}
+		virtual int	read_line(char* buffer, int max_len)
+		{
+			for (int i = 0; i+1 < max_len; )
+			{
+				char ch;
+				if (!read(&ch, 1)) {
+					buffer[i] = 0;
+					return i;
+				}
+				bool NL = ch == '\n' || ch == '\r';
+				if (!NL) {
+					buffer[i++] = ch;
+				}
+				else if (i) {
+					buffer[i] = 0;
+					return i;
+				}
+			}
+			buffer[max_len - 1] = 0;
+			return max_len;
+		}
+		virtual bool eof()
+		{
+			return feof(m_fp);
 		}
 	};
 
@@ -75,6 +116,14 @@ namespace xr
 		virtual int read(void*, int)
 		{
 			return 0;
+		}
+		virtual int	read_line(char* buffer, int max_len)
+		{
+			return 0;
+		}
+		virtual bool eof()
+		{
+			return false;
 		}
 	};
 
