@@ -84,6 +84,14 @@ namespace xr
 			m_size += end - begin;
 		}
 
+		void insert(int index, const T& element)
+		{
+			resize(size() + 1);
+			for (int i = size() - 1; i > index; --i)
+				m_ptr[i] = m_ptr[i - 1];
+			m_ptr[index] = element;
+		}
+
 	private:
 		void set_capacity(int new_capacity)
 		{

@@ -9,6 +9,25 @@ struct Vec2
 
 	Vec2() {}
 	Vec2(float _x, float _y) : x(_x), y(_y) {}
+
+	friend float dot(Vec2 a, Vec2 b)
+	{
+		return a.x*b.x + a.y*b.y;
+	}
+
+	friend Vec2 operator - (Vec2 a, Vec2 b)
+	{
+		return Vec2(a.x - b.x, a.y - b.y);
+	}
+	friend Vec2 normalize(Vec2 a)
+	{
+		float inv_len = 1.0f / sqrtf(a.x*a.x + a.y*a.y);
+		return Vec2(a.x * inv_len, a.y * inv_len);
+	}
+	friend float length(Vec2 v)
+	{
+		return sqrtf(v.x*v.x + v.y*v.y);
+	}
 };
 
 

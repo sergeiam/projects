@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{3677eba8-a321-4b54-82b4-15a70ea80123}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\xr">
+      <UniqueIdentifier>{a9085419-3392-42ef-b587-104c56774704}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\xr\sprite_render_window.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+    <ClCompile Include="wall_perimeter_generator.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\xr\sprite_render_window.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\math.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\vector.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

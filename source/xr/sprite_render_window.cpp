@@ -54,6 +54,8 @@ namespace xr
 		};
 		KEY_STATE	m_keys[256];
 		bool		m_key_held[256];
+		bool		m_mouse_left, m_mouse_right;
+		int			m_mouse_x, m_mouse_y;
 
 		struct VERTEX
 		{
@@ -79,6 +81,7 @@ namespace xr
 			m_text_texture = -1;
 
 			memset(m_key_held, false, sizeof(m_key_held));
+			m_mouse_left = m_mouse_right = false;
 
 			::QueryPerformanceCounter(&m_time_start);
 			::QueryPerformanceFrequency(&m_time_freq);
@@ -103,6 +106,7 @@ namespace xr
 		{
 			for (int i = 0; i < sizeof(m_keys) / sizeof(m_keys[0]); ++i )
 				m_keys[i] = KS_NONE;
+			m_mouse_left = m_mouse_right = false;
 		}
 
 		void error(const char* fmt, ...)
@@ -484,15 +488,19 @@ namespace xr
 		}
 		virtual int mouse_x()
 		{
-			return 0;
+			return m_mouse_x;
 		}
 		virtual int	mouse_y()
 		{
-			return 0;
+			return m_mouse_y;
 		}
 		virtual bool mouse_button(int button)
 		{
-			return 0;
+			switch (button) {
+				case 0: return m_mouse_left;
+				case 1: return m_mouse_right;
+			}
+			return false;
 		}
 		virtual float time_sec()
 		{
@@ -515,6 +523,11 @@ static LRESULT CALLBACK window_message_handler(HWND hwnd, UINT msg, WPARAM wpara
 
 	switch (msg)
 	{
+		case WM_LBUTTONDOWN: ptr->m_mouse_left = true; break;
+		case WM_RBUTTONDOWN: ptr->m_mouse_right = true; break;
+
+		case WM_MOUSEMOVE: ptr->m_mouse_x = LOWORD(lparam); ptr->m_mouse_y = HIWORD(lparam - 20); break;
+
 		case WM_CLOSE:
 		case WM_QUIT: {
 			::PostQuitMessage(0);
