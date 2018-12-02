@@ -10,6 +10,7 @@ namespace xr
 		virtual bool	create_window(int w, int h, const wchar_t* caption) = 0;
 		virtual int		load_texture(const char* filename) = 0;
 		virtual void	load_text_texture(const char* filename, int columns, int rows, int first_index, int pixels_to_shrink_per_letter) = 0;
+		virtual void	load_line_texture(const char* filename) = 0;
 
 		virtual void	set_texture(int texture) = 0;
 		virtual void	set_color(float r, float g, float b) = 0;
@@ -24,6 +25,9 @@ namespace xr
 		virtual bool	mouse_button(int button) = 0;
 
 		virtual float	time_sec() = 0;
+
+		virtual void	draw_line(float x1, float y1, float x2, float y2, float alpha = 1.0f, float z = 0.0f) = 0;
+		virtual void	draw_rect(float cx, float cy, float w, float h, float angle, float alpha = 1.0f, float z = 0.0f) = 0;
 
 		static SPRITE_RENDER_WINDOW* create();
 	};

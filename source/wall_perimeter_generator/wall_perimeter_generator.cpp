@@ -3,11 +3,15 @@
 #include <xr/vector.h>
 #include <math.h>
 #include <Windows.h>
+#include "grid.h"
 
-#define WIDTH 1200
-#define HEIGHT 800
+#define WIDTH	1200
+#define HEIGHT	800
+#define SIDE	30
+#define PI		3.141528f
 
-#define PI 3.141528f
+#define GRID_W  200
+#define GRID_H  (GRID_W * HEIGHT / WIDTH)
 
 class PERIMETER : public xr::VECTOR<Vec2>
 {
@@ -116,7 +120,24 @@ static bool line_intersect(const Vec2& a1, const Vec2& a2, const Vec2& b1, const
 		y >= xr::Min(b1.y, b2.y) && y <= xr::Max(b1.y, b2.y);
 }
 
-#define SIDE 30
+void draw_grid(xr::SPRITE_RENDER_WINDOW* device, GRID& grid)
+{
+	float sw = float(WIDTH) / grid.width(), sh = float(HEIGHT) / grid.height();
+	device->set_color(1, 1, 1);
+	for( int y=0; y<grid.height(); ++y )
+		for (int x = 0; x < grid.width(); ++x)
+		{
+			int val = grid(x, y);
+			if (!val) continue;
+			device->draw_sprite((x + 0.5f)*sw, (y + 0.5f)*sh, 10, 0, sw, sh, val / 255.0f);
+		}
+#if 0
+	for (int i = 0; i <= grid.width(); ++i)
+		device->draw_line(i*sw, 0, i*sw, HEIGHT, 0.2f, 10.0f);
+	for (int i = 0; i <= grid.height(); ++i)
+		device->draw_line(0, i*sh, WIDTH, i*sh, 0.2f, 10.0f);
+#endif
+}
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -124,31 +145,13 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	if (!device)
 		return 1;
 
-	if (!device->create_window(1200, 800, L"Random level generation test"))
+	if (!device->create_window(WIDTH, HEIGHT, L"Random level generation test"))
 		return 2;
 
-	const int TEX_LINE = device->load_texture("textures/line.tga");
-
+	device->load_line_texture("textures/line.tga");
 	device->load_text_texture("textures/ascii_256.tga", 16, 16, 0, 3);
 
-	auto draw_line = [device, TEX_LINE](float x1, float y1, float x2, float y2) -> void
-	{
-		float x = (x1 + x2)*0.5f, y = (y1 + y2)*0.5f;
-
-		float len = sqrtf((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1));
-
-		float angle = atan2f(y2 - y1, x1 - x2);
-
-		device->set_texture(TEX_LINE);
-		device->draw_sprite(x, y, 0, angle * 180.0f / PI, len, 5);
-	};
-	auto draw_square = [draw_line](float x, float y, float r) -> void
-	{
-		draw_line(x - r, y - r, x + r, y - r);
-		draw_line(x - r, y - r, x - r, y + r);
-		draw_line(x + r, y + r, x + r, y - r);
-		draw_line(x + r, y + r, x - r, y + r);
-	};
+	const int TEX_SOLID = device->load_texture("textures/solid.tga");
 
 	PERIMETER perimeter;
 	perimeter.push_back(Vec2(WIDTH / 2 - SIDE, HEIGHT / 2 - SIDE));
@@ -158,13 +161,43 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	int s1 = -1, s2 = -2;
 
+	GRID test(GRID_W, GRID_H);
+	test.set_world_to_grid_transform(0, 0, WIDTH, HEIGHT);
+
+	GRID tmp(GRID_W, GRID_H);
+
 	for (;;)
 	{
 		float angle = device->time_sec();
 		float s = sinf(angle), c = cosf(angle);
-		draw_line(20, 20, 20 + c*20, 20 + s*20);
+		device->draw_line(20, 20, 20 + c*20, 20 + s*20);
+
+		float A = device->time_sec() * 16.0f;
+
+		test.fill(0);
+		device->set_color(1, 0, 0);
+
+		auto test_rect = [&test, &device](float cx, float cy, float w, float h, float angle, int value) -> void
+		{
+			test.fill_oriented_rectangle(cx, cy, w, h, angle, value);
+			device->draw_rect(cx, cy, w, h, angle, 20);
+		};
+
+		test_rect(300, 500, 400, 50, A, 128);
+		test_rect(300, 100, 400, 25, 0, 128);
+		test_rect(550, 100, 100, 50, 0, 128);
+		test_rect(750, 500, 50, 400, -A*2, 128);
+
+		test.distance_to_image(tmp);
+		tmp.add(test);
+
+		device->set_color(1, 1, 1);
+		device->set_texture(TEX_SOLID);
+		draw_grid(device, tmp);
 
 		float dx = 0, dy = 0;
+
+		if (device->key_pressed(27)) break;
 
 		if (device->key_held(38)) dy = -SIDE;
 		if (device->key_held(40)) dy = +SIDE;
@@ -195,17 +228,19 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 			s1 = s2 = -1;
 		}
 
+		/*
 		device->set_color(1, 1, 1);
 		for (int i = 0, pi = perimeter.size()-1; i < perimeter.size(); ++i)
 		{
-			draw_line(perimeter[i].x, perimeter[i].y, perimeter[pi].x, perimeter[pi].y);
+			device->draw_line(perimeter[i].x, perimeter[i].y, perimeter[pi].x, perimeter[pi].y);
 			pi = i;
 		}
 		device->set_color(1, 0, 0);
 		if( s1 >= 0 )
-			draw_square(perimeter[s1].x, perimeter[s1].y, 5);
+			device->draw_rect(perimeter[s1].x, perimeter[s1].y, 5, 5, 0);
 		if (s2 >= 0)
-			draw_square(perimeter[s2].x, perimeter[s2].y, 5);
+			device->draw_rect(perimeter[s2].x, perimeter[s2].y, 5, 5, 0);
+			*/
 
 		device->set_color(1, 1, 1);
 		device->draw_text("Use arrows to advance perimeter in a specified direction", 10, 780, 0, 16, 20);

@@ -3,6 +3,11 @@
 #include <math.h>
 #include "core.h"
 
+const float PI = 3.14159265359f;
+
+inline float rad_to_deg(float rad) { return rad * 180.0f / PI; }
+inline float deg_to_rad(float deg) { return deg * PI / 180.0f; }
+
 struct Vec2
 {
 	float x, y;
@@ -15,10 +20,10 @@ struct Vec2
 		return a.x*b.x + a.y*b.y;
 	}
 
-	friend Vec2 operator - (Vec2 a, Vec2 b)
-	{
-		return Vec2(a.x - b.x, a.y - b.y);
-	}
+	friend Vec2 operator - (Vec2 a, Vec2 b) { return Vec2(a.x - b.x, a.y - b.y); }
+	friend Vec2 operator + (Vec2 a, Vec2 b) { return Vec2(a.x + b.x, a.y + b.y); }
+	friend Vec2 operator * (Vec2 a, float b) { return Vec2(a.x*b, a.y*b); }
+
 	friend Vec2 normalize(Vec2 a)
 	{
 		float inv_len = 1.0f / sqrtf(a.x*a.x + a.y*a.y);

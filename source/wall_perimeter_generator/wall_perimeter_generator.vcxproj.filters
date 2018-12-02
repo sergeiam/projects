@@ -26,5 +26,8 @@
     <ClInclude Include="..\xr\vector.h">
       <Filter>source\xr</Filter>
     </ClInclude>
+    <ClInclude Include="grid.h">
+      <Filter>source</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

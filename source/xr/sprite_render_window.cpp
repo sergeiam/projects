@@ -1,4 +1,5 @@
 #include <xr/sprite_render_window.h>
+#include <xr/math.h>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -45,6 +46,7 @@ namespace xr
 		LARGE_INTEGER						m_time_start, m_time_freq;
 		int									m_text_texture, m_text_columns, m_text_rows, m_text_first_index;
 		float								m_text_letter_shrink;
+		int									m_line_texture;
 
 		enum KEY_STATE {
 			KS_NONE,
@@ -79,6 +81,7 @@ namespace xr
 			m_color_r = m_color_g = m_color_b = 1.0f;
 			m_texture = -1;
 			m_text_texture = -1;
+			m_line_texture = -1;
 
 			memset(m_key_held, false, sizeof(m_key_held));
 			m_mouse_left = m_mouse_right = false;
@@ -299,6 +302,11 @@ namespace xr
 			m_text_letter_shrink = float(pixels_to_shrink_per_letter) / desc.Width;
 		}
 
+		virtual void load_line_texture(const char* filename)
+		{
+			m_line_texture = load_texture(filename);
+		}
+
 		virtual void set_texture(int texture)
 		{
 			m_texture = texture;
@@ -311,7 +319,7 @@ namespace xr
 			m_color_b = b;
 		}
 
-		virtual void draw_sprite(float x, float y, float z, float angle, float w, float h, float alpha, float u1, float v1, float u2, float v2)
+		virtual void draw_sprite(float x, float y, float z, float angle, float w, float h, float alpha, float u1 = 0.0f, float v1 = 0.0f, float u2 = 1.0f, float v2 = 1.0f)
 		{
 			m_sprites.resize(m_sprites.size() + 1);
 			SPRITE_SETUP& s = m_sprites.back();
@@ -507,6 +515,32 @@ namespace xr
 			LARGE_INTEGER t;
 			::QueryPerformanceCounter(&t);
 			return float(double(t.QuadPart - m_time_start.QuadPart) / double(m_time_freq.QuadPart));
+		}
+		virtual void draw_line(float x1, float y1, float x2, float y2, float alpha = 1.0f, float z=0.0f)
+		{
+			if (m_line_texture == -1) return;
+			float x = (x1 + x2)*0.5f, y = (y1 + y2)*0.5f;
+			float len = sqrtf((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1));
+			float angle = atan2f(y2 - y1, x1 - x2);
+
+			set_texture(m_line_texture);
+			draw_sprite(x, y, z, angle * 180.0f / 3.141528f, len, 5.0f, alpha);
+		}
+		virtual void draw_rect(float cx, float cy, float w, float h, float angle, float alpha = 1.0f, float z=0.0f)
+		{
+			float cos_angle = cosf(angle * PI / 180.0f), sin_angle = sinf(angle * PI / 180.0f);
+			float ax = cos_angle*w*0.5f, ay = sin_angle*w*0.5f, bx = -sin_angle*h*0.5f, by = cos_angle*h*0.5f;
+
+			float pt[8] = {
+				cx + ax + bx, cy + ay + by,
+				cx + ax - bx, cy + ay - by,
+				cx - ax - bx, cy - ay - by,
+				cx - ax + bx, cy - ay + by,
+			};
+			draw_line(pt[0], pt[1], pt[2], pt[3], alpha, z);
+			draw_line(pt[2], pt[3], pt[4], pt[5], alpha, z);
+			draw_line(pt[4], pt[5], pt[6], pt[7], alpha, z);
+			draw_line(pt[6], pt[7], pt[0], pt[1], alpha, z);
 		}
 	};
 

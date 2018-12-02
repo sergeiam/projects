@@ -161,6 +161,7 @@
     <ClInclude Include="..\xr\math.h" />
     <ClInclude Include="..\xr\sprite_render_window.h" />
     <ClInclude Include="..\xr\vector.h" />
+    <ClInclude Include="grid.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
