@@ -1,6 +1,21 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="cubemap_gen.cpp" />
+    <Filter Include="source">
+      <UniqueIdentifier>{b56ce174-0e5f-4c4e-a93f-ac47f0e256de}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="cubemap_gen.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stb_image.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image_write.h">
+      <Filter>source</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
