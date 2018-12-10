@@ -33,6 +33,7 @@ namespace xr
 		virtual void redraw() = 0;
 		virtual void set_caption(const wchar_t * caption) = 0;
 		virtual void exit() = 0;
+		virtual void get_handle(void* ptr) const = 0;
 
 		virtual int width() = 0;
 		virtual int height() = 0;

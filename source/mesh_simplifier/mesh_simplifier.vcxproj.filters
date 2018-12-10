@@ -24,6 +24,9 @@
     <ClCompile Include="..\xr\mesh.cpp">
       <Filter>source\xr</Filter>
     </ClCompile>
+    <ClCompile Include="..\xr\time.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\xr\heightfield_simplifier.h">
@@ -42,6 +45,9 @@
       <Filter>source\xr</Filter>
     </ClInclude>
     <ClInclude Include="..\xr\vector.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\time.h">
       <Filter>source\xr</Filter>
     </ClInclude>
   </ItemGroup>

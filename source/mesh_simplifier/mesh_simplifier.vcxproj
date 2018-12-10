@@ -154,6 +154,7 @@
     <ClCompile Include="..\xr\heightfield_simplifier.cpp" />
     <ClCompile Include="..\xr\mesh.cpp" />
     <ClCompile Include="..\xr\mesh_simplifier.cpp" />
+    <ClCompile Include="..\xr\time.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -162,6 +163,7 @@
     <ClInclude Include="..\xr\math.h" />
     <ClInclude Include="..\xr\mesh.h" />
     <ClInclude Include="..\xr\mesh_simplifier.h" />
+    <ClInclude Include="..\xr\time.h" />
     <ClInclude Include="..\xr\vector.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

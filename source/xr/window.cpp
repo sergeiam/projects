@@ -99,6 +99,10 @@ public:
 	{
 		return m_height;
 	}
+	virtual void get_handle(void* ptr) const
+	{
+		*((HWND*)ptr) = m_window_handle;
+	}
 	virtual void set_event_handler(EVENT_HANDLER* handler)
 	{
 		m_event_handler = handler;

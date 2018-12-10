@@ -5,9 +5,12 @@
 #include <xr/mesh_simplifier.h>
 #include <xr/heightfield_simplifier.h>
 #include <xr/mesh.h>
+#include <xr/time.h>
 
-#define SIMPLIFICATION_RATIO	0.15f    // how much from the original mesh we would like to keep as face count
-//#define SIMPLIFICATION_ANGLE	35.0f
+//#define SIMPLIFICATION_RATIO	0.15f    // how much from the original mesh we would like to keep as face count
+#define SIMPLIFICATION_EPSILON 0.0036f
+
+//#define HOLE_TEST  // circular hole in the center of the terrain
 
 #define INPUT_FILENAME "hf42k.raw"
 #define OUTPUT_FILENAME "mesh_hf.obj"
@@ -41,10 +44,6 @@ int main()
 
 	load_heightfield(INPUT_FILENAME, 1.0f, heightfield);
 
-	LARGE_INTEGER t1, t2, t3, freq;
-	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&t1);
-
 	xr::MESH mesh_hf;
 
 	xr::VECTOR<int> mask;
@@ -53,6 +52,7 @@ int main()
 
 	// draw a circle to test the weight/hole functionality
 
+#ifdef HOLE_TEST
 	for (int i = 0; i < W*H; ++i ) {
 		int x = (i%W) - (W / 2), y = (i / W) - (H / 2);
 		int xysq = x*x + y*y;
@@ -60,6 +60,9 @@ int main()
 		if( xysq >= (H*H / 16) && xysq <= ((H + 10)*(H + 10) / 16) )
 			heightfield[i] = HOLE_VALUE;
 	}
+#endif
+
+	xr::TIME_SCOPE time;
 
 #ifdef SIMPLIFICATION_RATIO
 
@@ -87,22 +90,21 @@ int main()
 		else
 			epsilon_r = epsilon;
 	}
-#elif defined(SIMPLIFICATION_ANGLE)
-	const float epsilon = tanf(SIMPLIFICATION_ANGLE * 3.1415f / 180.0f) * XY_SCALE;
-	xr::heightfield_simplify(&heightfield[0], &mask[0], W, H, XY_SCALE, HOLE_VALUE, xr::Max(W / 16, H / 16), epsilon, mesh_hf);
+#elif defined(SIMPLIFICATION_EPSILON)
+
+	xr::heightfield_simplify(&heightfield[0], &mask[0], W, H, XY_SCALE, HOLE_VALUE, xr::Max(W / 16, H / 16), SIMPLIFICATION_EPSILON, mesh_hf);
+
 #endif
 
-	QueryPerformanceCounter(&t2);
+	char pc[256];
+	sprintf(pc, "Simplify took %d ms\n", time.measure_duration_ms());
+	OutputDebugStringA(pc);
+
+	time.reset();
 
 	mesh_hf.write_obj(OUTPUT_FILENAME);
 
-	QueryPerformanceCounter(&t3);
-
-	char pc[256];
-	sprintf(pc, "Simplify took %d ms\n", int((double(t2.QuadPart) - double(t1.QuadPart))*1000.0 / double(freq.QuadPart)));
-	OutputDebugStringA(pc);
-
-	sprintf(pc, "WriteObj took %d ms\n", int((double(t3.QuadPart) - double(t2.QuadPart))*1000.0 / double(freq.QuadPart)));
+	sprintf(pc, "WriteObj took %d ms\n", time.measure_duration_ms());
 	OutputDebugStringA(pc);
 
 	return 0;
