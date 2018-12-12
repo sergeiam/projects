@@ -15,8 +15,6 @@ namespace xr
 
 	struct RENDER_DEVICE_DX11 : public RENDER_DEVICE
 	{
-
-
 // --- TEXTURE implementation
 
 		struct TEXTURE_DX11 : public TEXTURE
@@ -308,25 +306,70 @@ namespace xr
 
 				if (ds.StencilEnable)
 				{
-					ds.StencilReadMask = m_params.StencilReadMask;
-					ds.StencilWriteMask = m_params.StencilWriteMask;
-					ds.FrontFace.StencilDepthFailOp = GetStencilOp(m_params.FrontStencil.depthFail);
-					ds.FrontFace.StencilFailOp = GetStencilOp(m_params.FrontStencil.fail);
-					ds.FrontFace.StencilPassOp = GetStencilOp(m_params.FrontStencil.pass);
-					ds.FrontFace.StencilFunc = GetComparison(m_params.FrontStencil.cmpFunc);
-					ds.BackFace.StencilDepthFailOp = GetStencilOp(m_params.BackStencil.depthFail);
-					ds.BackFace.StencilFailOp = GetStencilOp(m_params.BackStencil.fail);
-					ds.BackFace.StencilPassOp = GetStencilOp(m_params.BackStencil.pass);
-					ds.BackFace.StencilFunc = GetComparison(m_params.BackStencil.cmpFunc);
-					ds.StencilEnable = TRUE;
+					ds.StencilReadMask = m_params.stencil->read_mask;
+					ds.StencilWriteMask = m_params.stencil->write_mask;
+					ds.FrontFace.StencilDepthFailOp = xr_to_dx11_stencilop(m_params.stencil->front.depth_fail);
+					ds.FrontFace.StencilFailOp = xr_to_dx11_stencilop(m_params.stencil->front.fail);
+					ds.FrontFace.StencilPassOp = xr_to_dx11_stencilop(m_params.stencil->front.pass);
+					ds.FrontFace.StencilFunc = xr_to_dx11_comparison(m_params.stencil->front.cmp_func);
+					ds.BackFace.StencilDepthFailOp = xr_to_dx11_stencilop(m_params.stencil->back.depth_fail);
+					ds.BackFace.StencilFailOp = xr_to_dx11_stencilop(m_params.stencil->back.fail);
+					ds.BackFace.StencilPassOp = xr_to_dx11_stencilop(m_params.stencil->back.pass);
+					ds.BackFace.StencilFunc = xr_to_dx11_comparison(m_params.stencil->back.cmp_func);
 				}
 
 				hr = s_device->CreateDepthStencilState(&ds, &depth_stencil_state);
 				LOG_HR(hr);
-				if (hr != S_OK) {
-					delete ptr;
-					return nullptr;
+				if (hr != S_OK)
+					return false;
+
+				D3D11_RASTERIZER_DESC rd;
+				rd.AntialiasedLineEnable = FALSE;
+				rd.CullMode = xr_to_dx11_cull_mode(m_params.cull_mode);
+				rd.DepthBias = m_params.depth_bias;
+				rd.DepthBiasClamp = 0.0f;
+				rd.DepthClipEnable = (m_params.flags & RSF_DEPTH_CLIP) ? TRUE : FALSE;
+				rd.FillMode = (m_params.flags & RSF_WIREFRAME) ? D3D11_FILL_WIREFRAME : D3D11_FILL_SOLID;
+				rd.FrontCounterClockwise = FALSE;
+				rd.MultisampleEnable = FALSE;	// MSAA
+				rd.ScissorEnable = (m_params.flags & RSF_SCISSOR) ? TRUE : FALSE;
+
+				hr = s_device->CreateRasterizerState(&rd, &rasterizer_state);
+				LOG_HR(hr);
+				if (hr != S_OK)
+					return false;
+
+				D3D11_BLEND_DESC bd;
+				bd.AlphaToCoverageEnable = (m_params.flags & RSF_ALPHA_TO_COVERAGE) ? TRUE : FALSE;
+				bd.IndependentBlendEnable = (m_params.flags & RSF_INDEPENDENT_BLEND) ? TRUE : FALSE;
+				for (int i = 0; i < 8; ++i) {
+					if (i < m_params.blend_states.size())
+					{
+						bd.RenderTarget[i].BlendOp = xr_to_dx11_blendop(m_params.blend_states[i].blendop);
+						bd.RenderTarget[i].BlendOpAlpha = xr_to_dx11_blendop(m_params.blend_states[i].blendop_alpha);
+						bd.RenderTarget[i].SrcBlend = xr_to_dx11_blend(m_params.blend_states[i].src_blend);
+						bd.RenderTarget[i].DestBlend = xr_to_dx11_blend(m_params.blend_states[i].dest_blend);
+						bd.RenderTarget[i].SrcBlendAlpha = xr_to_dx11_blend(m_params.blend_states[i].src_blend_alpha);
+						bd.RenderTarget[i].DestBlendAlpha = xr_to_dx11_blend(m_params.blend_states[i].dest_blend_alpha);
+						bd.RenderTarget[i].RenderTargetWriteMask = m_params.blend_states[i].write_mask;
+					}
+					else
+					{
+						bd.RenderTarget[i].BlendOp = D3D11_BLEND_OP_ADD;
+						bd.RenderTarget[i].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+						bd.RenderTarget[i].SrcBlend = D3D11_BLEND_ONE;
+						bd.RenderTarget[i].DestBlend = D3D11_BLEND_ZERO;
+						bd.RenderTarget[i].SrcBlendAlpha = D3D11_BLEND_ONE;
+						bd.RenderTarget[i].DestBlendAlpha = D3D11_BLEND_ZERO;
+						bd.RenderTarget[i].RenderTargetWriteMask = 0xFF;
+					}
 				}
+				hr = s_device->CreateBlendState(&bd, &blend_state);
+				LOG_HR(hr);
+				if (hr != S_OK)
+					return false;
+
+				return true;
 			}
 
 			ID3D11DepthStencilState*	depth_stencil_state = nullptr;
@@ -347,8 +390,12 @@ namespace xr
 
 		virtual void set_render_state(const RENDER_STATE* rs, u8 stencil = 0, const float* blend_factors = nullptr)
 		{
-
+			RENDER_STATE_DX11* ptr = (RENDER_STATE_DX11*)rs;
+			s_device_context->RSSetState(ptr->rasterizer_state);
+			s_device_context->OMSetDepthStencilState(ptr->depth_stencil_state, stencil);
+			s_device_context->OMSetBlendState(ptr->blend_state, blend_factors, 0);
 		}
+
 
 
 // --- RENDER_DEVICE implementation
@@ -391,6 +438,45 @@ namespace xr
 			return hr == S_OK;
 		}
 
+		TEXTURE*	m_render_targets[16];
+		TEXTURE*	m_depth_stencil;
+		int			m_num_render_targets;
+
+		virtual void set_render_targets(TEXTURE* ptr, int index)
+		{
+			m_render_targets[index] = ptr;
+			m_num_render_targets = xr::Max(m_num_render_targets, index + 1);
+		}
+		virtual void set_depth_stencil(TEXTURE* ptr)
+		{
+			m_depth_stencil = ptr;
+		}
+		virtual void clear_render_target(TEXTURE* texture, const float* rgba)
+		{
+			TEXTURE_DX11* p = (TEXTURE_DX11*)texture;
+			ASSERT(p && p->render_target_view);
+			if (!p || !p->render_target_view)
+				return;
+			FLOAT v[4] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+			s_device_context->ClearRenderTargetView(p->render_target_view, v);
+		}
+		virtual void clear_depth_stencil(TEXTURE* texture, int flags, float depth, u8 stencil)
+		{
+			TEXTURE_DX11* p = (TEXTURE_DX11*)texture;
+			ASSERT(p && p->pDepthStencilView);
+			ASSERT(flags);
+			if (!p || !p->depth_stencil_view)
+				return;
+
+			UINT f = 0;
+			if (flags & CLEAR_DEPTH) f |= D3D11_CLEAR_DEPTH;
+			if (flags & CLEAR_STENCIL) f |= D3D11_CLEAR_STENCIL;
+			ASSERT(f);
+
+			if (f)
+				s_device_context->ClearDepthStencilView(p->depth_stencil_view, f, depth, stencil);
+		}
+
 
 
 
@@ -411,7 +497,8 @@ namespace xr
 
 		static FORMAT dx11_to_xr_format(DXGI_FORMAT format)
 		{
-			switch (format) {
+			switch (format)
+			{
 				#define ITEM(tf,dxgi) case dxgi: return tf;
 					XR_TO_DX_FORMAT_MAPPING
 				#undef ITEM
@@ -420,15 +507,14 @@ namespace xr
 		}
 		static DXGI_FORMAT xr_to_dx11_format(RENDER_DEVICE::FORMAT format)
 		{
-			switch (format) {
+			switch (format)
+			{
 				#define ITEM(tf,dxgi) case tf: return dxgi;
 					XR_TO_DX_FORMAT_MAPPING
 				#undef ITEM
 			}
 			return DXGI_FORMAT_UNKNOWN;
 		}
-
-
 		static D3D11_COMPARISON_FUNC xr_to_dx11_comparison(CMP cmp)
 		{
 			switch (cmp)
@@ -442,10 +528,58 @@ namespace xr
 			}
 			return D3D11_COMPARISON_NEVER;
 		}
-
-		D3D11_STENCIL_OP		GetStencilOp(RDStencilOp cmp);
-		D3D11_CULL_MODE			GetCullMode(RDCull cull);
-		D3D11_BLEND_OP			GetBlendOp(RDBlendOp op);
-		D3D11_BLEND				GetBlend(RDBlend blend);
+		static D3D11_STENCIL_OP xr_to_dx11_stencilop(STENCILOP op)
+		{
+			switch (op)
+			{
+				case STENCILOP_KEEP:			return D3D11_STENCIL_OP_KEEP;
+				case STENCILOP_ZERO:			return D3D11_STENCIL_OP_ZERO;
+				case STENCILOP_REPLACE:			return D3D11_STENCIL_OP_REPLACE;
+				case STENCILOP_INCREASE_SAT:	return D3D11_STENCIL_OP_INCR_SAT;
+				case STENCILOP_DECREASE_SAT:	return D3D11_STENCIL_OP_DECR_SAT;
+				case STENCILOP_INVERT:			return D3D11_STENCIL_OP_INVERT;
+				case STENCILOP_INCREASE:		return D3D11_STENCIL_OP_INCR;
+				case STENCILOP_DECREASE:		return D3D11_STENCIL_OP_DECR;
+			}
+			return D3D11_STENCIL_OP_KEEP;
+		}
+		static D3D11_CULL_MODE xr_to_dx11_cull_mode(CULL cull)
+		{
+			switch (cull)
+			{
+				case CULL_FRONT: return D3D11_CULL_FRONT;
+				case CULL_BACK: return D3D11_CULL_BACK;
+			}
+			return D3D11_CULL_NONE;
+		}
+		static D3D11_BLEND_OP xr_to_dx11_blendop(BLENDOP op)
+		{
+			switch (op)
+			{
+				case BLENDOP_SUB:		return D3D11_BLEND_OP_SUBTRACT; break;
+				case BLENDOP_REV_SUB:	return D3D11_BLEND_OP_REV_SUBTRACT; break;
+				case BLENDOP_MIN:		return D3D11_BLEND_OP_MIN; break;
+				case BLENDOP_MAX:		return D3D11_BLEND_OP_MAX; break;
+			}
+			return D3D11_BLEND_OP_ADD;
+		}
+		static D3D11_BLEND xr_to_dx11_blend(BLEND blend)
+		{
+			switch (blend)
+			{
+				case BLEND_ONE:					return D3D11_BLEND_ONE;
+				case BLEND_SRC_COLOR:			return D3D11_BLEND_SRC_COLOR;
+				case BLEND_INV_SRC_COLOR:		return D3D11_BLEND_INV_SRC_COLOR;
+				case BLEND_SRC_ALPHA:			return D3D11_BLEND_SRC_ALPHA;
+				case BLEND_INV_SRC_ALPHA:		return D3D11_BLEND_INV_SRC_ALPHA;
+				case BLEND_DEST_COLOR:			return D3D11_BLEND_DEST_COLOR;
+				case BLEND_INV_DEST_COLOR:		return D3D11_BLEND_INV_DEST_COLOR;
+				case BLEND_DEST_ALPHA:			return D3D11_BLEND_DEST_ALPHA;
+				case BLEND_INV_DEST_ALPHA:		return D3D11_BLEND_INV_DEST_ALPHA;
+				case BLEND_BLEND_FACTOR:		return D3D11_BLEND_BLEND_FACTOR;
+				case BLEND_INV_BLEND_FACTOR:	return D3D11_BLEND_INV_BLEND_FACTOR;
+			}
+			return D3D11_BLEND_ZERO;
+		}
 	};
 }

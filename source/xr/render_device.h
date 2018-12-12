@@ -57,6 +57,9 @@ namespace xr
 			SF_VERTEX_SHADER	= 1 << 0,
 			SF_PIXEL_SHADER		= 1 << 1,
 			SF_COMPUTE_SHADER	= 1 << 2,
+
+			CLEAR_DEPTH = 1 << 0,
+			CLEAR_STENCIL = 1 << 1,
 		};
 
 		struct TEXTURE_PARAMS
@@ -120,7 +123,7 @@ namespace xr
 			CMP_NEVER
 		};
 
-		enum STENCIL_OP : unsigned
+		enum STENCILOP : unsigned
 		{
 			STENCILOP_KEEP,
 			STENCILOP_ZERO,
@@ -134,7 +137,7 @@ namespace xr
 
 		struct STENCIL_FACE_OP
 		{
-			STENCIL_OP	fail : 3, depth_fail : 3, pass : 3;
+			STENCILOP	fail : 3, depth_fail : 3, pass : 3;
 			CMP			cmp_func : 3;
 
 			STENCIL_FACE_OP() {
@@ -181,14 +184,14 @@ namespace xr
 			BLEND		dest_blend : 4;
 			BLEND		src_blend_alpha : 4;
 			BLEND		dest_blend_alpha : 4;
-			BLENDOP		blend_op : 3;
-			BLENDOP		blend_op_alpha : 3;
+			BLENDOP		blendop : 3;
+			BLENDOP		blendop_alpha : 3;
 			u8			write_mask;
 
 			RENDER_TARGET_BLEND_STATE() {
 				src_blend = src_blend_alpha = BLEND_ONE;
 				dest_blend = dest_blend_alpha = BLEND_ZERO;
-				blend_op = blend_op_alpha = BLENDOP_ADD;
+				blendop = blendop_alpha = BLENDOP_ADD;
 				write_mask = 0xFF;
 			}
 		};
@@ -202,12 +205,12 @@ namespace xr
 			RSF_SCISSOR				= 1 << 5
 		};
 
-		struct RENDER_STATE_STENCIL
+		struct STENCIL
 		{
-			u8					stencil_read_mask = 0;
-			u8					stencil_write_mask = 0;
-			STENCIL_FACE_OP		stencil_front;
-			STENCIL_FACE_OP		stancil_back;
+			u8					read_mask = 0;
+			u8					write_mask = 0;
+			STENCIL_FACE_OP		front;
+			STENCIL_FACE_OP		back;
 		};
 
 		struct RENDER_STATE_PARAMS
@@ -215,7 +218,7 @@ namespace xr
 			u8						flags = RSF_DEPTH_WRITE;
 			// depth stencil state
 			CMP						depth_func : 8;
-			RENDER_STATE_STENCIL*	stencil = nullptr;
+			STENCIL*				stencil = nullptr;
 
 			// rasterizer state
 			CULL					cull_mode = CULL_BACK;
@@ -298,6 +301,10 @@ namespace xr
 
 		virtual void			set_render_state(RENDER_STATE*) = 0;
 
+		virtual void			set_render_targets(TEXTURE* ptr, int index) = 0;
+		virtual void			set_depth_stencil(TEXTURE* ptr) = 0;
+		virtual void			clear_render_target(TEXTURE* ptr, const float* rgba) = 0;
+		virtual void			clear_depth_stencil(TEXTURE* ptr, int flags, float depth, u8 stencil) = 0;
 
 		virtual ~RENDER_DEVICE() {}
 	};
