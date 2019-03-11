@@ -41,19 +41,14 @@ namespace xr
 		bool operator() () { return true; }
 	};
 
-	struct FILE
-	{
-		virtual ~FILE() {}
-
-		virtual int		write(const void* ptr, int size) = 0;
-		virtual int		read(void* ptr, int size) = 0;
-		virtual int		read_line(char* buffer, int max_len) = 0;
-		virtual bool	eof() = 0;
-
-		static FILE*	open(const char* file, const char* mode);
-		static FILE*	std_out();
-	};
-
-	void fast_printf(FILE* f, const char* format, ...);
 	void log(const char* format, ...);
+
+	u32 hash(i8 x) { return x; }
+	u32 hash(i16 x) { return x; }
+	u32 hash(i32 x) { return x; }
+	u32 hash(u8 x) { return x; }
+	u32 hash(u16 x) { return x; }
+	u32 hash(u32 x) { return x; }
+	u32 hash(void* x) { return sizeof(x) == 4 ? u32(x) : (u32(x) ^ (u64(x) >> 32U)); }
+	u32 hash_string(const char* str);
 }

@@ -260,7 +260,7 @@ namespace xr
 
 			case BF_INDEX_BUFFER:
 				ASSERT(count == 1);
-				s_device_context->IASetIndexBuffer(pb[0], (ptr[0]->params.flags & BF_INDICES_16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, offsets[0]);
+				s_device_context->IASetIndexBuffer(pb[0], (ptr[0]->params().flags & BF_INDICES_16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, offsets[0]);
 				break;
 
 			case BF_CONSTANT_BUFFER:
@@ -398,6 +398,253 @@ namespace xr
 
 
 
+// --- INPUT LAYOUT
+
+		struct INPUT_LAYOUT_DX11 : public INPUT_LAYOUT
+		{
+			INPUT_LAYOUT_DX11(const IL_PARAMS& params) : input_layout(nullptr)
+			{
+				m_params = params;
+			}
+			virtual ~INPUT_LAYOUT_DX11()
+			{
+				SAFE_RELEASE(input_layout);
+			}
+			bool allocate()
+			{
+				D3D11_INPUT_ELEMENT_DESC desc[16];
+				ASSERT(m_params.elements.size() < 16);
+				for (int i = 0; i < m_params.elements.size(); ++i)
+				{
+					const IL_ELEMENT& el = m_params.elements[i];
+					switch (el.semantic)
+					{
+						case IL_SEMANTIC_POSITION:	desc[i].SemanticName = "Position"; break;
+						case IL_SEMANTIC_TEXCOORD:	desc[i].SemanticName = "TexCoord"; break;
+						case IL_SEMANTIC_NORMAL:	desc[i].SemanticName = "Normal"; break;
+						case IL_SEMANTIC_COLOR:		desc[i].SemanticName = "Color"; break;
+					}
+					desc[i].SemanticIndex = el.semantic_index;
+					desc[i].AlignedByteOffset = el.offset;
+					desc[i].InstanceDataStepRate = el.instance_step_rate;
+					desc[i].InputSlot = el.slot;
+					desc[i].InputSlotClass = el.instance_step_rate ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+					desc[i].Format = xr_to_dx11_format(el.format);
+				}
+				HRESULT hr = s_device->CreateInputLayout(desc, m_params.elements.size(), &m_params.vs_bytecode->bytecode[0], m_params.vs_bytecode->bytecode.size(), &input_layout);
+				LOG_HR(hr);
+				if (hr != S_OK)
+					return false;
+				return true;
+			}
+			ID3D11InputLayout*	input_layout;
+		};
+		virtual INPUT_LAYOUT* create_input_layout(const IL_PARAMS& params)
+		{
+			INPUT_LAYOUT_DX11* p = new INPUT_LAYOUT_DX11(params);
+			if (!p->allocate())
+			{
+				delete p;
+				return nullptr;
+			}
+			return p;
+		}
+		virtual void set_input_layout(const INPUT_LAYOUT* ptr)
+		{
+			INPUT_LAYOUT_DX11* il = (INPUT_LAYOUT_DX11*)ptr;
+			s_device_context->IASetInputLayout(il->input_layout);
+		}
+
+
+
+// --- SHADER
+
+		virtual SHADER_BYTECODE* compile_shader(const SHADER_SOURCE& source)
+		{
+			D3D_SHADER_MACRO * definitions = nullptr;
+			if (!source.macro_definitions) {
+				const int count = source.macro_definitions->size() / 2;
+				definitions = new D3D_SHADER_MACRO[count];
+				for (int i = 0; i < count; ++i) {
+					definitions[i].Name = (*source.macro_definitions)[i*2].c_str();
+					definitions[i].Definition = (*source.macro_definitions)[i * 2 + 1].c_str();
+				}
+			}
+
+			UINT flags = 0;
+			ID3DBlob *compiled_blob, *errors_blob;
+
+			HRESULT hr = D3DCompile(
+				source.source,
+				strlen(source.source),
+				source.filename.c_str(),
+				definitions,
+				D3D_COMPILE_STANDARD_FILE_INCLUDE,
+				source.entry_function_name.c_str(),
+				source.profile.c_str(),
+				flags,
+				0,
+				&compiled_blob,
+				&errors_blob
+			);
+			LOG_HR(hr);
+			delete[] definitions;
+
+			if (hr != S_OK) {
+				SAFE_RELEASE(errors_blob);
+				SAFE_RELEASE(compiled_blob);
+				return nullptr;
+			}
+
+			SHADER_BYTECODE* sb = new SHADER_BYTECODE();
+			sb->bytecode.resize(compiled_blob->GetBufferSize());
+			memcpy(&sb->bytecode[0], compiled_blob->GetBufferPointer(), sb->bytecode.size());
+
+			sb->flags = 0;
+			switch (source.profile.c_str()[0])
+			{
+				case 'V':
+				case 'v':
+					sb->flags |= SF_VERTEX_SHADER;
+					break;
+				case 'P':
+				case 'p':
+					sb->flags |= SF_PIXEL_SHADER;
+					break;
+				case 'C':
+				case 'c':
+					sb->flags |= SF_COMPUTE_SHADER;
+					break;
+				default:
+					ASSERT(0);
+					return nullptr;
+			}
+
+			SAFE_RELEASE(compiled_blob);
+			SAFE_RELEASE(errors_blob);
+			return sb;
+		}
+
+		struct SHADER_DX11 : public SHADER
+		{
+			u32 flags;
+			union {
+				ID3D11VertexShader*		vs;
+				ID3D11PixelShader*		ps;
+				ID3D11ComputeShader*	cs;
+			};
+
+			SHADER_DX11() : flags(0), vs(nullptr) {}
+
+			virtual ~SHADER_DX11()
+			{
+				SAFE_RELEASE(vs);
+			}
+		};
+
+		virtual SHADER* create_shader(const SHADER_BYTECODE& bytecode)
+		{
+			SHADER_DX11* ptr = new SHADER_DX11();
+
+			HRESULT hr = S_OK;
+
+			ptr->flags = bytecode.flags;
+			switch (ptr->flags)
+			{
+			case SF_VERTEX_SHADER:
+				hr = s_device->CreateVertexShader(&bytecode.bytecode[0], bytecode.bytecode.size(), NULL, &ptr->vs);
+				break;
+			case SF_PIXEL_SHADER:
+				hr = s_device->CreatePixelShader(&bytecode.bytecode[0], bytecode.bytecode.size(), NULL, &ptr->ps);
+				break;
+			case SF_COMPUTE_SHADER:
+				hr = s_device->CreateComputeShader(&bytecode.bytecode[0], bytecode.bytecode.size(), NULL, &ptr->cs);
+				break;
+			}
+			LOG_HR(hr);
+			if (hr != S_OK) {
+				delete ptr;
+				return nullptr;
+			}
+			return ptr;
+		}
+
+		void set_shader(SHADER* shader)
+		{
+			SHADER_DX11* ptr = (SHADER_DX11*)shader;
+			switch (ptr->flags & (SF_VERTEX_SHADER|SF_PIXEL_SHADER|SF_COMPUTE_SHADER))
+			{
+				case SF_VERTEX_SHADER:
+					s_device_context->VSSetShader(ptr->vs, nullptr, 0);
+					break;
+				case SF_PIXEL_SHADER:
+					s_device_context->PSSetShader(ptr->ps, nullptr, 0);
+					break;
+				case SF_COMPUTE_SHADER:
+					s_device_context->CSSetShader(ptr->cs, nullptr, 0);
+					break;
+			}
+		}
+
+// --- render target setup
+
+		TEXTURE_DX11*	m_render_targets[16] = { nullptr };
+		TEXTURE_DX11*	m_depth_stencil = nullptr;
+		int				m_num_render_targets = 0;
+
+		virtual void reset_render_targets()
+		{
+			for (int i = 0; i < m_num_render_targets; ++i)
+				m_render_targets[i] = nullptr;
+			m_num_render_targets = 0;
+			m_depth_stencil = nullptr;
+		}
+		virtual void set_render_targets(TEXTURE* ptr, int index)
+		{
+			m_render_targets[index] = (TEXTURE_DX11*)ptr;
+			m_num_render_targets = xr::Max(m_num_render_targets, index + 1);
+		}
+		virtual void set_depth_stencil(TEXTURE* ptr)
+		{
+			m_depth_stencil = (TEXTURE_DX11*)ptr;
+		}
+		virtual void clear_render_target(TEXTURE* texture, const float* rgba)
+		{
+			TEXTURE_DX11* p = (TEXTURE_DX11*)texture;
+			ASSERT(p && p->render_target_view);
+			if (!p || !p->render_target_view)
+				return;
+			FLOAT v[4] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+			s_device_context->ClearRenderTargetView(p->render_target_view, v);
+		}
+		virtual void clear_depth_stencil(TEXTURE* texture, int flags, float depth, u8 stencil)
+		{
+			TEXTURE_DX11* p = (TEXTURE_DX11*)texture;
+			ASSERT(p && p->depth_stencil_view);
+			ASSERT(flags);
+			if (!p || !p->depth_stencil_view)
+				return;
+
+			UINT f = 0;
+			if (flags & CLEAR_DEPTH) f |= D3D11_CLEAR_DEPTH;
+			if (flags & CLEAR_STENCIL) f |= D3D11_CLEAR_STENCIL;
+			ASSERT(f);
+
+			if (f)
+				s_device_context->ClearDepthStencilView(p->depth_stencil_view, f, depth, stencil);
+		}
+		void setup_render_targets()
+		{
+			ID3D11RenderTargetView * pp_color_views[16];
+			for (int i = 0; i < m_num_render_targets; ++i) {
+				pp_color_views[i] = m_render_targets[i]->render_target_view;
+			}
+			ID3D11DepthStencilView * dsv = m_depth_stencil ? m_depth_stencil->depth_stencil_view : NULL;
+			s_device_context->OMSetRenderTargets(UINT(m_num_render_targets), pp_color_views, dsv);
+		}
+
+
+
 // --- RENDER_DEVICE implementation
 
 		virtual ~RENDER_DEVICE_DX11()
@@ -438,59 +685,27 @@ namespace xr
 			return hr == S_OK;
 		}
 
-		TEXTURE*	m_render_targets[16];
-		TEXTURE*	m_depth_stencil;
-		int			m_num_render_targets;
+		virtual void present()
+		{
+			if (s_swap_chain)
+				s_swap_chain->Present(1, 0);
+		}
 
-		virtual void set_render_targets(TEXTURE* ptr, int index)
-		{
-			m_render_targets[index] = ptr;
-			m_num_render_targets = xr::Max(m_num_render_targets, index + 1);
-		}
-		virtual void set_depth_stencil(TEXTURE* ptr)
-		{
-			m_depth_stencil = ptr;
-		}
-		virtual void clear_render_target(TEXTURE* texture, const float* rgba)
-		{
-			TEXTURE_DX11* p = (TEXTURE_DX11*)texture;
-			ASSERT(p && p->render_target_view);
-			if (!p || !p->render_target_view)
-				return;
-			FLOAT v[4] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-			s_device_context->ClearRenderTargetView(p->render_target_view, v);
-		}
-		virtual void clear_depth_stencil(TEXTURE* texture, int flags, float depth, u8 stencil)
-		{
-			TEXTURE_DX11* p = (TEXTURE_DX11*)texture;
-			ASSERT(p && p->pDepthStencilView);
-			ASSERT(flags);
-			if (!p || !p->depth_stencil_view)
-				return;
-
-			UINT f = 0;
-			if (flags & CLEAR_DEPTH) f |= D3D11_CLEAR_DEPTH;
-			if (flags & CLEAR_STENCIL) f |= D3D11_CLEAR_STENCIL;
-			ASSERT(f);
-
-			if (f)
-				s_device_context->ClearDepthStencilView(p->depth_stencil_view, f, depth, stencil);
-		}
 
 
 
 
 #define XR_TO_DX_FORMAT_MAPPING	\
 		ITEM(FMT_UNKNOWN,				DXGI_FORMAT_UNKNOWN) \
-		ITEM(FMT_BYTE4,					DXGI_FORMAT_R8G8B8A8_UNORM)	\
-		ITEM(FMT_FLOAT16_1,				DXGI_FORMAT_R16_FLOAT) \
-		ITEM(FMT_FLOAT16_2,				DXGI_FORMAT_R16G16_FLOAT) \
-		ITEM(FMT_FLOAT16_4,				DXGI_FORMAT_R16G16B16A16_FLOAT) \
-		ITEM(FMT_FLOAT32_1,				DXGI_FORMAT_R32_FLOAT) \
-		ITEM(FMT_FLOAT32_2,				DXGI_FORMAT_R32G32_FLOAT) \
-		ITEM(FMT_FLOAT32_3,				DXGI_FORMAT_R32G32B32_FLOAT) \
-		ITEM(FMT_FLOAT32_4,				DXGI_FORMAT_R32G32B32A32_FLOAT) \
-		ITEM(FMT_UINT32_1,				DXGI_FORMAT_R32_UINT) \
+		ITEM(FMT_R8G8B8A8,				DXGI_FORMAT_R8G8B8A8_UNORM)	\
+		ITEM(FMT_R16F,					DXGI_FORMAT_R16_FLOAT) \
+		ITEM(FMT_R16G16F,				DXGI_FORMAT_R16G16_FLOAT) \
+		ITEM(FMT_R16G16B16F,			DXGI_FORMAT_R16G16B16A16_FLOAT) \
+		ITEM(FMT_R32F,					DXGI_FORMAT_R32_FLOAT) \
+		ITEM(FMT_R32G32F,				DXGI_FORMAT_R32G32_FLOAT) \
+		ITEM(FMT_R32G32B32F,			DXGI_FORMAT_R32G32B32_FLOAT) \
+		ITEM(FMT_R32G32B32A32F,			DXGI_FORMAT_R32G32B32A32_FLOAT) \
+		ITEM(FMT_R32U,					DXGI_FORMAT_R32_UINT) \
 		ITEM(FMT_D32_FLOAT,				DXGI_FORMAT_D32_FLOAT) \
 		ITEM(FMT_D24_S8,				DXGI_FORMAT_D24_UNORM_S8_UINT) \
 		ITEM(FMT_D16,					DXGI_FORMAT_D16_UNORM)
@@ -582,4 +797,14 @@ namespace xr
 			return D3D11_BLEND_ZERO;
 		}
 	};
+
+	RENDER_DEVICE* create_device_directx11(WINDOW* wnd, const RENDER_DEVICE::DEVICE_PARAMS& params)
+	{
+		RENDER_DEVICE_DX11* ptr = new RENDER_DEVICE_DX11();
+		if (!ptr->create(wnd, params))
+		{
+			delete ptr;
+		}
+		return ptr;
+	}
 }

@@ -74,6 +74,8 @@
     <OutDir>$(SolutionDir)..\binaries\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)..\intermediate\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName).$(Configuration)</TargetName>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86;$(DXSDK_DIR)Lib\x86</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -83,6 +85,8 @@
     <OutDir>$(SolutionDir)..\binaries\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)..\intermediate\$(ProjectName)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName).$(Configuration)</TargetName>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(DXSDK_DIR)Include</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86;$(DXSDK_DIR)Lib\x86</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -99,6 +103,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -130,6 +135,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -151,14 +157,27 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\xr\core.cpp" />
+    <ClCompile Include="..\xr\file.cpp" />
     <ClCompile Include="..\xr\mesh.cpp" />
+    <ClCompile Include="..\xr\render_device_directx11.cpp" />
+    <ClCompile Include="..\xr\shader.cpp" />
+    <ClCompile Include="..\xr\string.cpp" />
+    <ClCompile Include="..\xr\technique.cpp" />
     <ClCompile Include="..\xr\window.cpp" />
     <ClCompile Include="model_viewer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\xr\core.h" />
+    <ClInclude Include="..\xr\file.h" />
+    <ClInclude Include="..\xr\hash.h" />
+    <ClInclude Include="..\xr\material.h" />
     <ClInclude Include="..\xr\math.h" />
     <ClInclude Include="..\xr\mesh.h" />
+    <ClInclude Include="..\xr\render_device.h" />
+    <ClInclude Include="..\xr\shader.h" />
+    <ClInclude Include="..\xr\string.h" />
+    <ClInclude Include="..\xr\technique.h" />
+    <ClInclude Include="..\xr\texture.h" />
     <ClInclude Include="..\xr\vector.h" />
     <ClInclude Include="..\xr\window.h" />
   </ItemGroup>

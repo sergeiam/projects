@@ -21,6 +21,21 @@
     <ClCompile Include="model_viewer.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="..\xr\render_device_directx11.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\string.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\technique.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\shader.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\file.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\xr\core.h">
@@ -36,6 +51,30 @@
       <Filter>source\xr</Filter>
     </ClInclude>
     <ClInclude Include="..\xr\window.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\render_device.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\string.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\technique.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\hash.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\material.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\texture.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\shader.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\file.h">
       <Filter>source\xr</Filter>
     </ClInclude>
   </ItemGroup>

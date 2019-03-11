@@ -1,6 +1,10 @@
 #pragma once
 
 #include <xr/core.h>
+#include <xr/vector.h>
+#include <xr/string.h>
+
+
 
 namespace xr
 {
@@ -11,18 +15,18 @@ namespace xr
 		enum FORMAT
 		{
 			FMT_UNKNOWN,
-			FMT_BYTE4,
+			FMT_R8G8B8A8,
 
-			FMT_FLOAT16_1,
-			FMT_FLOAT16_2,
-			FMT_FLOAT16_4,
+			FMT_R16F,
+			FMT_R16G16F,
+			FMT_R16G16B16F,
 
-			FMT_FLOAT32_1,
-			FMT_FLOAT32_2,
-			FMT_FLOAT32_3,
-			FMT_FLOAT32_4,
+			FMT_R32F,
+			FMT_R32G32F,
+			FMT_R32G32B32F,
+			FMT_R32G32B32A32F,
 
-			FMT_UINT32_1,
+			FMT_R32U,
 
 			FMT_D32_FLOAT,
 			FMT_D24_S8,
@@ -79,8 +83,6 @@ namespace xr
 		protected:
 			TEXTURE_PARAMS	m_params;
 		};
-
-
 
 		struct BUFFER_PARAMS
 		{
@@ -225,7 +227,7 @@ namespace xr
 			i32						depth_bias = 0;
 			float					slope_scale_depth_bias = 0.0f;
 			// blend state
-			xr::VECTOR<RENDER_TARGET_BLEND_STATE>	blend_states;
+			VECTOR<RENDER_TARGET_BLEND_STATE>	blend_states;
 
 			RENDER_STATE_PARAMS() : depth_func(CMP_LESS) {}
 			~RENDER_STATE_PARAMS()
@@ -247,42 +249,56 @@ namespace xr
 		struct SHADER_BYTECODE
 		{
 			VECTOR<u8>	bytecode;
+			u32			flags;
 		};
 
-		class SHADER
+		struct SHADER_SOURCE
 		{
-
+			const char*		source;
+			STR_ID			filename;
+			STR_ID			entry_function_name;
+			STR_ID			profile;
+			u32				flags;
+			u32				optimization_level;
+			const VECTOR<STR_ID>*	macro_definitions;
 		};
 
-
-
-		struct INPUT_LAYOUT_ELEMENT
+		struct SHADER
 		{
-			u32		semantic;
-			u32		semantic_index;
-			u32		slot;
-			u32		offset;
-			u32		instance_step_rate;
-			FORMAT	format;
+			virtual ~SHADER() {}
 		};
 
-		struct INPUT_LAYOUT_PARAMS
+		enum IL_SEMANTIC
 		{
-			INPUT_LAYOUT_ELEMENT*	elements;
-			u32						elements_count;
-			SHADER_BYTECODE*		vs_bytecode;
+			IL_SEMANTIC_POSITION,
+			IL_SEMANTIC_TEXCOORD,
+			IL_SEMANTIC_NORMAL,
+			IL_SEMANTIC_COLOR,
+		};
+
+		struct IL_ELEMENT
+		{
+			IL_SEMANTIC		semantic;
+			u32				semantic_index;
+			u32				slot;
+			u32				offset;
+			u32				instance_step_rate;
+			FORMAT			format;
+		};
+
+		struct IL_PARAMS
+		{
+			VECTOR<IL_ELEMENT>	elements;
+			SHADER_BYTECODE*	vs_bytecode;
 		};
 
 		struct INPUT_LAYOUT
 		{
 			virtual ~INPUT_LAYOUT() {}
 
-			virtual bool map(MAPPED_DATA& md, u32 flags) = 0;
-			virtual void unmap() = 0;
-
-			const BUFFER_PARAMS& params() const { return m_params; }
+			const IL_PARAMS& params() const { return m_params; }
 		protected:
-			BUFFER_PARAMS	m_params;
+			IL_PARAMS	m_params;
 		};
 
 		struct DEVICE_PARAMS
@@ -291,23 +307,31 @@ namespace xr
 			int		msaa;
 		};
 
-		virtual bool			create(WINDOW* window, const DEVICE_PARAMS& params) = 0;
-		virtual TEXTURE*		create_texture(const TEXTURE_PARAMS& params) = 0;
-		virtual BUFFER*			create_buffer(const BUFFER_PARAMS& params) = 0;
-		virtual RENDER_STATE*	create_render_state(const RENDER_STATE_PARAMS& params) = 0;
+		virtual bool				create(WINDOW* window, const DEVICE_PARAMS& params) = 0;
+		virtual TEXTURE*			create_texture(const TEXTURE_PARAMS& params) = 0;
+		virtual BUFFER*				create_buffer(const BUFFER_PARAMS& params) = 0;
+		virtual RENDER_STATE*		create_render_state(const RENDER_STATE_PARAMS& params) = 0;
+		virtual INPUT_LAYOUT*		create_input_layout(const IL_PARAMS& params) = 0;
+		virtual SHADER_BYTECODE*	compile_shader(const SHADER_SOURCE& source) = 0;
+		virtual SHADER*				create_shader(const SHADER_BYTECODE& bytecode) = 0;
 
-		virtual void			set_buffers(const BUFFER** ptr, u32 count, u32 slot, const u32 * strides, const u32 * offsets, u32 flags) = 0;
-		virtual void			set_render_state(const RENDER_STATE* rs, u8 stencil = 0, const float* blend_factors = nullptr) = 0;
+		virtual void				set_buffers(const BUFFER** ptr, u32 count, u32 slot, const u32 * strides, const u32 * offsets, u32 flags) = 0;
+		virtual void				set_render_state(const RENDER_STATE* rs, u8 stencil = 0, const float* blend_factors = nullptr) = 0;
+		virtual void				set_input_layout(const INPUT_LAYOUT* ptr) = 0;
+		virtual void				set_shader(SHADER* shader) = 0;
 
-		virtual void			set_render_state(RENDER_STATE*) = 0;
+		virtual void				reset_render_targets() = 0;
+		virtual void				set_render_targets(TEXTURE* ptr, int index) = 0;
+		virtual void				set_depth_stencil(TEXTURE* ptr) = 0;
+		virtual void				clear_render_target(TEXTURE* ptr, const float* rgba) = 0;
+		virtual void				clear_depth_stencil(TEXTURE* ptr, int flags, float depth, u8 stencil) = 0;
 
-		virtual void			set_render_targets(TEXTURE* ptr, int index) = 0;
-		virtual void			set_depth_stencil(TEXTURE* ptr) = 0;
-		virtual void			clear_render_target(TEXTURE* ptr, const float* rgba) = 0;
-		virtual void			clear_depth_stencil(TEXTURE* ptr, int flags, float depth, u8 stencil) = 0;
+		virtual void				present() = 0;
 
 		virtual ~RENDER_DEVICE() {}
 	};
 
-	RENDER_DEVICE* create_device_directx11(WINDOW* wnd);
+	RENDER_DEVICE* create_device_directx11(WINDOW* wnd, const RENDER_DEVICE::DEVICE_PARAMS& params);
+
+	RENDER_DEVICE*	g_render_device;
 }

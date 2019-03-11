@@ -1,4 +1,5 @@
 #include <xr/window.h>
+#include <xr/render_device.h>
 #include <Windows.h>
 
 enum EMENU_IDS
@@ -11,9 +12,14 @@ enum EMENU_IDS
 
 struct MODEL_VIEWER : public xr::WINDOW::EVENT_HANDLER
 {
-	MODEL_VIEWER() : m_main_window(nullptr) {}
+	MODEL_VIEWER() :
+		m_main_window(nullptr),
+		m_render_device(nullptr)
+	{
+	}
 	~MODEL_VIEWER()
 	{
+		delete m_render_device;
 		delete m_main_window;
 	}
 
@@ -31,6 +37,12 @@ struct MODEL_VIEWER : public xr::WINDOW::EVENT_HANDLER
 		m_main_window->add_menu_item(L"File/Save", MENU_FILE_SAVE);
 		m_main_window->add_menu_item(L"View/Wireframe", MENU_VIEW_WIREFRAME);
 		m_main_window->add_menu_item(L"View/Solid shaded", MENU_VIEW_SOLID);
+
+		xr::RENDER_DEVICE::DEVICE_PARAMS dp;
+		dp.back_buffer_format = xr::RENDER_DEVICE::FMT_R8G8B8A8;
+
+		m_render_device = xr::create_device_directx11(m_main_window, dp);
+
 		return true;
 	}
 
@@ -62,7 +74,16 @@ struct MODEL_VIEWER : public xr::WINDOW::EVENT_HANDLER
 
 	bool update()
 	{
+		render_frame();
+
 		return m_main_window->update();
+	}
+
+	void render_frame()
+	{
+
+
+		m_render_device->present();
 	}
 
 	void file_open()
@@ -75,6 +96,7 @@ struct MODEL_VIEWER : public xr::WINDOW::EVENT_HANDLER
 	}
 
 	xr::WINDOW* m_main_window;
+	xr::RENDER_DEVICE* m_render_device;
 };
 
 int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, int cmd_show)

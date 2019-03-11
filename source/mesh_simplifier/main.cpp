@@ -8,7 +8,7 @@
 #include <xr/time.h>
 
 //#define SIMPLIFICATION_RATIO	0.15f    // how much from the original mesh we would like to keep as face count
-#define SIMPLIFICATION_EPSILON 0.0036f
+#define SIMPLIFICATION_EPSILON 0.0136f
 
 //#define HOLE_TEST  // circular hole in the center of the terrain
 
@@ -18,6 +18,14 @@
 #define H 2048
 #define XY_SCALE 0.005f
 #define HOLE_VALUE -1000.0f
+
+struct TEST
+{
+	int a : 2;
+	int b = 1;
+
+	TEST() : a(0) {}
+};
 
 bool load_heightfield(const char* file, float max_height, xr::VECTOR<float>& hf)
 {

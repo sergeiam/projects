@@ -1,5 +1,7 @@
 #pragma once
 
+#include <xr/core.h>
+
 namespace xr
 {
 	template< class T, bool POD = true > class VECTOR
@@ -11,6 +13,12 @@ namespace xr
 		VECTOR(int size) : m_ptr(nullptr), m_size(0), m_capacity(0)
 		{
 			set_capacity(size);
+		}
+		VECTOR(const VECTOR<T>&& rhs)
+		{
+			m_ptr = rhs.m_ptr;
+			m_size = rhs.m_size;
+			m_capacity = rhs.m_capacity;
 		}
 		~VECTOR()
 		{
@@ -48,7 +56,6 @@ namespace xr
 		{
 			return m_size == 0;
 		}
-
 		T& operator[](int index)
 		{
 			ASSERT(index >= 0 && index < m_size);
@@ -59,7 +66,6 @@ namespace xr
 			ASSERT(index >= 0 && index < m_size);
 			return m_ptr[index];
 		}
-
 		void operator = (const VECTOR<T>& v)
 		{
 			delete[] m_ptr;
@@ -67,13 +73,11 @@ namespace xr
 			m_ptr = new T[m_size];
 			memcpy(m_ptr, v.m_ptr, m_size * sizeof(T));
 		}
-
 		void fill(const T& x)
 		{
 			for (int i = 0; i < m_size; ++i)
 				m_ptr[i] = x;
 		}
-
 		void append(const T* begin, const T* end)
 		{
 			if (m_size + (end - begin) > m_capacity)
@@ -83,13 +87,18 @@ namespace xr
 			memcpy(m_ptr + m_size, begin, (end - begin) * sizeof(T));
 			m_size += end - begin;
 		}
-
 		void insert(int index, const T& element)
 		{
 			resize(size() + 1);
 			for (int i = size() - 1; i > index; --i)
 				m_ptr[i] = m_ptr[i - 1];
 			m_ptr[index] = element;
+		}
+		void swap(VECTOR<T>& rhs)
+		{
+			Swap(m_ptr, rhs.m_ptr);
+			Swap(m_size, rhs.m_size);
+			Swap(m_capacity, rhs.m_capacity);
 		}
 
 	private:
