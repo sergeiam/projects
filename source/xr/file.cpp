@@ -3,26 +3,23 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <Windows.h>
+#include <math.h>
+
+#define FILE_BUFFER_SIZE 2048
 
 namespace xr
 {
-	struct FILE_STDIO : public FILE
+	struct FILE_WIN32 : public FILE
 	{
 		HANDLE	m_fp;
-		//::FILE*	m_fp;
-		char	m_buffer[2048];
-		int		m_pos, m_buffer_size;
-		u64		m_size;
+		u8		m_buffer[FILE_BUFFER_SIZE];
+		u32		m_pos, m_buffer_size;
 
-		FILE_STDIO(::FILE* fp) : m_fp(fp), m_pos(0), m_buffer_size(0)
+		FILE_WIN32(HANDLE fp) : m_fp(fp), m_pos(0), m_buffer_size(0)
 		{
-			long now = ftell(fp);
-			fseek(fp, 0, SEEK_END);
-			m_size = ftell(fp);
-			fseek(fp, now, SEEK_SET);
 		}
 
-		virtual ~FILE_STDIO()
+		virtual ~FILE_WIN32()
 		{
 			if (m_pos)
 			{
@@ -31,13 +28,13 @@ namespace xr
 			}
 			CloseHandle(m_fp);
 		}
-		virtual int write(const void* ptr, int size)
+		virtual u32 write(const void* ptr, u32 size)
 		{
 			if (!size)
 			{
 				return 0;
 			}
-			if (m_pos + size <= 2048)
+			if (m_pos + size <= FILE_BUFFER_SIZE)
 			{
 				if (size == 1)
 				{
@@ -49,25 +46,30 @@ namespace xr
 				return size;
 			}
 
-			if ((int)fwrite(m_buffer, 1, m_pos, m_fp) < m_pos)
+			u32 written = 0;
+
+			if (!WriteFile(m_fp, m_buffer, m_pos, &written, NULL))
 				return 0;
+
 			m_pos = 0;
 
-			if (size >= 2048)
+			if (size >= FILE_BUFFER_SIZE)
 			{
-				return fwrite(ptr, 1, size, m_fp);
+				WriteFile(m_fp, ptr, size, &written, NULL);
+				return written;
 			}
 			return write(ptr, size);
 		}
-		virtual int read(void* ptr, int size)
+		virtual u32 read(void* ptr, u32 size)
 		{
-			int read_size = 0;
+			u32 read_size = 0;
 			while (read_size < size)
 			{
 				if (m_pos == m_buffer_size)
 				{
-					m_buffer_size = fread(m_buffer, 1, 2048, m_fp);
-					if (!m_buffer_size) return read_size;
+					ReadFile(m_fp, m_buffer, FILE_BUFFER_SIZE, &m_buffer_size, NULL);
+					if (!m_buffer_size)
+						return read_size;
 					m_pos = 0;
 				}
 
@@ -79,7 +81,7 @@ namespace xr
 			}
 			return read_size;
 		}
-		virtual int	read_line(char* buffer, int max_len)
+		virtual u32	read_line(char* buffer, u32 max_len)
 		{
 			for (int i = 0; i + 1 < max_len; )
 			{
@@ -102,23 +104,31 @@ namespace xr
 		}
 		virtual bool eof()
 		{
-			return feof(m_fp);
+			return m_pos == m_buffer_size && m_buffer_size < FILE_BUFFER_SIZE;
 		}
 		virtual u64 size()
 		{
-			return m_size;
+			u32 high;
+			u32 low = GetFileSize(m_fp, &high);
+			return low | (u64(high) << 32);
+		}
+		virtual u64 get_last_write_time()
+		{
+			FILETIME ft;
+			GetFileTime(m_fp, NULL, NULL, &ft);
+			return ft.dwLowDateTime | (u64(ft.dwHighDateTime) << 32);
 		}
 	};
 
 	struct FILE_STDOUT : public FILE
 	{
-		virtual int write(const void* ptr, int size)
+		virtual u32 write(const void* ptr, u32 size)
 		{
 			char buf[1025];
 			const char* p = (const char*)ptr;
 			for (; size > 0; size -= 1024, p += 1024)
 			{
-				int len = Min(size, 1024);
+				int len = Min(size, (u32)1024);
 				strncpy(buf, p, len);
 				buf[len] = 0;
 				printf("%s", buf);
@@ -126,11 +136,11 @@ namespace xr
 			}
 			return size;
 		}
-		virtual int read(void*, int)
+		virtual u32 read(void*, u32)
 		{
 			return 0;
 		}
-		virtual int	read_line(char* buffer, int max_len)
+		virtual u32	read_line(char* buffer, u32 max_len)
 		{
 			return 0;
 		}
@@ -142,31 +152,26 @@ namespace xr
 		{
 			return 0;
 		}
+		virtual u64 get_last_write_time()
+		{
+			return 0;
+		}
 	};
 
 	FILE* FILE::open(const char* file, const char* mode)
 	{
-		DWORD dwAccess = 0;
-		DWORD dwShareMode = 0;
-		DWORD dwCreation = 0;
-		DWORD dwFlags = 0;
-
-
-
-		HANDLE h = ::CreateFile(file, 0, 0, NULL, 0, 0, NULL);
-		//::FILE* fp = fopen(file, mode);
-		return (h != INVALID_HANDLE_VALUE) ? new FILE_STDIO(h) : nullptr;
+		DWORD access = 0;
+		DWORD share_mode = 0;
+		DWORD creation = 0;
+		DWORD flags = 0;
+		HANDLE h = ::CreateFileA(file, access, share_mode, NULL, creation, flags, NULL);
+		return (h != INVALID_HANDLE_VALUE) ? new FILE_WIN32(h) : nullptr;
 	}
 
 	FILE* FILE::std_out()
 	{
 		static FILE_STDOUT fso;
 		return &fso;
-	}
-
-	u32 FILE::datetime(const char* file)
-	{
-
 	}
 
 	static int print_int(char* buf, int value)
