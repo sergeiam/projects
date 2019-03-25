@@ -130,4 +130,8 @@ namespace xr
 	private:
 		const char* m_str;
 	};
+
+	STRING get_filename_name(const char* filename);
+	STRING get_filename_extension(const char* filename);
+	STRING get_filename_folder(const char* filename);
 }

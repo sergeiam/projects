@@ -80,7 +80,7 @@ namespace xr
 		return copy;
 	}
 
-	static STRING_HOLDER STRING_HOLDER::duplicate(const char* str)
+	STRING_HOLDER STRING_HOLDER::duplicate(const char* str)
 	{
 		char* ptr = new char[strlen(str) + 1];
 		strcpy(ptr, str);
@@ -88,4 +88,51 @@ namespace xr
 		return sh;
 	}
 
+	static void decompose_filename(const char* filename, int& fb, int& fe, int& nb, int& ne, int& eb, int& ee)
+	{
+		const char* r1 = strrchr(filename, '/');
+		const char* r2 = strrchr(filename, '\\');
+		const char* r = Max(r1, r2);
+
+		fb = 0;
+		fe = r ? r - filename : 0;
+
+		const char* name = r ? r + 1 : filename;
+
+		const char* d = strchr(filename, '.');
+
+		nb = name - filename;
+		ne = d ? d - filename : strlen(filename);
+
+		if (d)
+		{
+			eb = d + 1 - filename;
+			ee = strlen(filename);
+		}
+		else
+		{
+			eb = ee = 0;
+		}
+	}
+
+	STRING get_filename_name(const char* filename)
+	{
+		int fb, fe, nb, ne, eb, ee;
+		decompose_filename(filename, fb, fe, nb, ne, eb, ee);
+		return ne > nb ? STRING(filename + nb, ne - nb) : STRING();
+	}
+
+	STRING get_filename_extension(const char* filename)
+	{
+		int fb, fe, nb, ne, eb, ee;
+		decompose_filename(filename, fb, fe, nb, ne, eb, ee);
+		return ee > eb ? STRING(filename + eb, ee - eb) : STRING();
+	}
+
+	STRING get_filename_folder(const char* filename)
+	{
+		int fb, fe, nb, ne, eb, ee;
+		decompose_filename(filename, fb, fe, nb, ne, eb, ee);
+		return fe > fb ? STRING(filename + fb, fe - fb) : STRING();
+	}
 }

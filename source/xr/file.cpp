@@ -5,7 +5,7 @@
 #include <Windows.h>
 #include <math.h>
 
-#define FILE_BUFFER_SIZE 2048
+#define FILE_BUFFER_SIZE 4096
 
 namespace xr
 {
@@ -15,8 +15,32 @@ namespace xr
 		u8		m_buffer[FILE_BUFFER_SIZE];
 		u32		m_pos, m_buffer_size;
 
-		FILE_WIN32(HANDLE fp) : m_fp(fp), m_pos(0), m_buffer_size(0)
+		FILE_WIN32(const char* file, u32 flags) : m_pos(0), m_buffer_size(0)
 		{
+			DWORD access = 0;
+			if (flags & READ) access |= GENERIC_READ;
+			if (flags & WRITE) access |= GENERIC_WRITE;
+
+			DWORD share_mode = 0;
+			if ((flags & READ) != 0 && (flags & WRITE) == 0) share_mode |= FILE_SHARE_READ;
+
+			DWORD creation = 0;
+			switch (flags)
+			{
+				case WRITE: creation |= OPEN_ALWAYS; break;
+				case READ: creation |= OPEN_EXISTING; break;
+				case WRITE | READ: creation |= OPEN_ALWAYS; break;
+				case WRITE | TRUNC: creation |= CREATE_ALWAYS; break;
+				case WRITE | READ | TRUNC: creation |= CREATE_ALWAYS; break;
+			}
+			DWORD flags = FILE_ATTRIBUTE_NORMAL;
+
+			m_fp = ::CreateFileA(file, access, share_mode, NULL, creation, flags, NULL);
+		}
+
+		bool initialized()
+		{
+			return m_fp != INVALID_HANDLE_VALUE;
 		}
 
 		virtual ~FILE_WIN32()
@@ -26,7 +50,8 @@ namespace xr
 				u32 written = 0;
 				WriteFile(m_fp, m_buffer, m_pos, &written, NULL);
 			}
-			CloseHandle(m_fp);
+			if( m_fp != INVALID_HANDLE_VALUE )
+				CloseHandle(m_fp);
 		}
 		virtual u32 write(const void* ptr, u32 size)
 		{
@@ -160,12 +185,12 @@ namespace xr
 
 	FILE* FILE::open(const char* file, const char* mode)
 	{
-		DWORD access = 0;
-		DWORD share_mode = 0;
-		DWORD creation = 0;
-		DWORD flags = 0;
-		HANDLE h = ::CreateFileA(file, access, share_mode, NULL, creation, flags, NULL);
-		return (h != INVALID_HANDLE_VALUE) ? new FILE_WIN32(h) : nullptr;
+		FILE_WIN32* ptr = new FILE_WIN32(file, mode);
+		if (ptr->initialized())
+			return ptr;
+
+		delete ptr;
+		return nullptr;
 	}
 
 	FILE* FILE::std_out()
