@@ -14,6 +14,8 @@ template< class T > T& texel(T* ptr, int x, int y)
 	return ptr[x + y * RES];
 }
 
+bool inside(int x, int y) { return x >= 0 && y >= 0 && x < RES && y < RES; }
+
 struct Vec3i
 {
 	int x, y, z;
@@ -22,50 +24,79 @@ struct Vec3i
 	Vec3i(int _x, int _y, int _z) : x(_x), y(_y), z(_z) {}
 };
 
+template< class T > struct Image
+{
+	T* m_data;
+
+	Image() : m_data(new T[RES * RES]) { clear(); }
+
+	T& operator()(int x, int y)
+	{
+		return m_data[x + y * RES];
+	}
+	T& operator [] (int index)
+	{
+		return m_data[index];
+	}
+	T* ptr()
+	{
+		return m_data;
+	}
+	void clear()
+	{
+		memset(m_data, 0, RES * RES * sizeof(T));
+	}
+	template< class T2 > void convert_to(Image<T2>& image, T2 base)
+	{
+		for (int i = 0; i < RES * RES; ++i)
+			image[i] = T2(m_data[i] * base);
+	}
+};
+
 template< class T1, class T2 > T1 min(T1 a, T2 b) { return (a < b) ? a : b; }
 template< class T1, class T2 > T1 max(T1 a, T2 b) { return (a > b) ? a : b; }
 
 int main()
 {
-	u8* mask = new u8[RES * RES];
-	FILE* fp = fopen("greece.raw", "rb");
+	Image<u8> mask;
+	FILE* fp = fopen("map.raw", "rb");
 	if (!fp) return 1;
-	fread(mask, 1, RES * RES, fp);
+	fread(mask.ptr(), 1, RES * RES, fp);
 	fclose(fp);
 
-	float* df = new float[RES * RES];
+	Image<float> df;
 	for (int i = 0; i < RES * RES; ++i)
 		df[i] = mask[i] ? SEARCH_DISTANCE : 0.0f;
 
 // compute signed distance field
 #if 1
-	for (int y = 0; y < 2048; ++y)
+	for (int y = 0; y < RES; ++y)
 	{
-		for (int x = 0; x < 2048; ++x)
+		for (int x = 0; x < RES; ++x)
 		{
-			float v = texel(df, x, y);
+			float v = df(x, y);
 			if (!v) continue;
 
-			if (x) v = min(v, texel(df, x - 1, y) + 1.0f);
-			if( x && y ) v = min(v, texel(df, x - 1, y - 1) + 1.414213f);
-			if( y ) v = min(v, texel(df, x, y - 1) + 1.0f);
-			if (x + 1 < RES && y) v = min(v, texel(df, x + 1, y - 1) + 1.414213f);
+			if (x) v = min(v, df(x - 1, y) + 1.0f);
+			if( x && y ) v = min(v, df(x - 1, y - 1) + 1.414213f);
+			if( y ) v = min(v, df(x, y - 1) + 1.0f);
+			if (x + 1 < RES && y) v = min(v, df(x + 1, y - 1) + 1.414213f);
 
-			texel(df, x, y) = v;
-			texel(mask, x, y) = u8(v);
+			df(x, y) = v;
+			mask(x, y) = u8(v);
 		}
 	}
-	for (int y = 2047; y >= 0; --y)
+	for (int y = RES-1; y >= 0; --y)
 	{
-		for (int x = 2047; x >= 0; --x)
+		for (int x = RES-1; x >= 0; --x)
 		{
-			float v = texel(df, x, y);
+			float v = df(x, y);
 			if (!v) continue;
 
-			if (x+1<RES) v = min(v, texel(df, x + 1, y) + 1.0f);
-			if (x+1<RES && y+1<RES) v = min(v, texel(df, x + 1, y + 1) + 1.414213f);
-			if (y+1<RES) v = min(v, texel(df, x, y + 1) + 1.0f);
-			if (x && y+1<RES) v = min(v, texel(df, x - 1, y + 1) + 1.414213f);
+			if (x+1<RES) v = min(v, df(x + 1, y) + 1.0f);
+			if (x+1<RES && y+1<RES) v = min(v, df(x + 1, y + 1) + 1.414213f);
+			if (y+1<RES) v = min(v, df(x, y + 1) + 1.0f);
+			if (x && y+1<RES) v = min(v, df(x - 1, y + 1) + 1.414213f);
 
 			texel(df, x, y) = v;
 			texel(mask, x, y) = u8(v);
@@ -78,7 +109,7 @@ int main()
 #endif
 
 // compute brute-force distance field
-#if 0
+#if 1
 	std::vector<Vec3i> sk;
 	for (int y = -SEARCH_DISTANCE; y <= SEARCH_DISTANCE; ++y)
 	{
@@ -107,9 +138,10 @@ int main()
 
 			for (int i = 0, n = sk.size(); i < n; ++i)
 			{
-				int xc = x + psk[i].x;
-				int yc = y + psk[i].y;
-				if (xc < 0 || yc < 0 || xc >= RES || yc >= RES) continue;
+				int xc = x + psk[i].x, yc = y + psk[i].y;
+
+				if (!inside(xc, yc)) continue;
+
 				if (texel(df2, xc, yc) >= 1.0f) continue;
 
 				texel(df2, x, y) = psk[i].z;
@@ -187,6 +219,8 @@ int main()
 #if 1
 	u8* used = new u8[RES * RES];
 	memset(used, 0, RES* RES);
+	float* outlinef = new float[RES * RES];
+	memset(outlinef, 0, RES* RES * 4);
 
 	for (int y = 0; y < RES; ++y)
 	{
@@ -199,7 +233,7 @@ int main()
 
 			int xc = x, yc = y;
 
-			for (u8 value = 1;; ++value)
+			for (int value = 1;; ++value)
 			{
 				int ofs[4][2] = { {-1,0},{0,1},{1,0},{0,-1} };
 				int xn = -1, yn = -1;
@@ -207,11 +241,14 @@ int main()
 				for (int i = 0; i < 4; ++i)
 				{
 					int nx = xc + ofs[i][0], ny = yc + ofs[i][1];
-					if (nx < 0 || ny < 0 || nx == RES || ny == RES) continue;
+
+					if ( ! inside(nx,ny )) continue;
+
 					if (texel(used, nx, ny)) continue;
 					if (texel(outline, nx, ny) == 0) continue;
 
-					texel(outline, nx, ny) = value;
+					texel(outline, nx, ny) = u8(value & 0xFF);
+					texel(outlinef, nx, ny) = value;
 					texel(used, nx, ny) = 1;
 
 					xn = nx;
@@ -237,6 +274,8 @@ int main()
 		memcpy(dest_outline, outline, RES* RES);
 		u8* dest_used = new u8[RES * RES];
 		memcpy(dest_used, used, RES* RES);
+		float* dest_outlinef = new float[RES * RES];
+		memset(dest_outlinef, 0, RES* RES);
 
 		for (int y = 0; y < RES; ++y)
 		{
@@ -245,27 +284,37 @@ int main()
 				if (texel(mask, x, y) == 0 || texel(mask, x, y) == SEARCH_DISTANCE || texel(used, x, y)) continue;
 
 				const int ofs[8][2] = { {-1,0},{0,1},{1,0},{0,-1}, {1,1}, {-1,1}, {1,-1}, {-1,-1} };
+				const float w[8] = { 1.0f, 1.0f, 1.0f, 1.0f, 0.77f, 0.77f, 0.77f, 0.77f };
 
 				int sum = 0, count = 0;
+				float wsum = 0.0f, wweight = 0.0f;
 
 				for (int i = 0; i < 8; ++i)
 				{
 					int nx = x + ofs[i][0], ny = y + ofs[i][1];
-					if (nx < 0 || ny < 0 || nx == RES || ny == RES) continue;
+
+					if (!inside(nx,ny)) continue;
+
 					if (!texel(used, nx, ny)) continue;
 
 					sum += texel(outline, nx, ny);
 					count++;
+
+					wsum += texel(outlinef, nx, ny);
+					wweight += w[i];
 				}
 				if (count)
 				{
 					texel(dest_outline, x, y) = sum / count;
+					texel(dest_outlinef, x, y) = wsum / wweight;
 					texel(dest_used, x, y) = 1;
 				}
 			}
 		}
 		delete[] outline;
 		outline = dest_outline;
+		delete[] outlinef;
+		outlinef = dest_outlinef;
 		delete[] used;
 		used = dest_used;
 	}
