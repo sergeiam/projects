@@ -29,6 +29,20 @@ template< class T > struct Image
 	T* m_data;
 
 	Image() : m_data(new T[RES * RES]) { clear(); }
+	Image(const Image& rhs)
+	{
+		m_data = new T[RES * RES];
+		memcpy(m_data, rhs.m_data, RES * RES * sizeof(T));
+	}
+	~Image()
+	{
+		delete[] m_data;
+	}
+
+	void operator = (const Image& rhs)
+	{
+		memcpy(m_data, rhs.m_data, RES * RES * sizeof(T));
+	}
 
 	T& operator()(int x, int y)
 	{
@@ -50,6 +64,15 @@ template< class T > struct Image
 	{
 		for (int i = 0; i < RES * RES; ++i)
 			image[i] = T2(m_data[i] * base);
+	}
+	void save(const char* filename)
+	{
+		FILE* fp = fopen(filename, "wb");
+		if (fp)
+		{
+			fwrite(m_data, 1, RES * RES * sizeof(T), fp);
+			fclose(fp);
+		}
 	}
 };
 
@@ -98,14 +121,11 @@ int main()
 			if (y+1<RES) v = min(v, df(x, y + 1) + 1.0f);
 			if (x && y+1<RES) v = min(v, df(x - 1, y + 1) + 1.414213f);
 
-			texel(df, x, y) = v;
-			texel(mask, x, y) = u8(v);
+			df(x, y) = v;
+			mask(x, y) = u8(v);
 		}
 	}
-
-	fp = fopen("sdf.raw", "wb");
-	fwrite(mask, 1, RES * RES, fp);
-	fclose(fp);
+	mask.save("sdf.raw");
 #endif
 
 // compute brute-force distance field
@@ -122,7 +142,7 @@ int main()
 	}
 	std::sort(sk.begin(), sk.end(), [](const Vec3i & a, const Vec3i & b) -> bool { return a.z < b.z; });
 
-	float* df2 = new float[RES * RES];
+	Image<float> df2;
 	for (int i = 0; i < RES * RES; ++i)
 	{
 		df2[i] = mask[i] ? SEARCH_DISTANCE : 0.0f;
@@ -134,7 +154,7 @@ int main()
 	{
 		for (int x = 0; x < RES; ++x)
 		{
-			if (texel(df2, x, y) < 1.0f) continue;
+			if (df2(x, y) < 1.0f) continue;
 
 			for (int i = 0, n = sk.size(); i < n; ++i)
 			{
@@ -142,36 +162,32 @@ int main()
 
 				if (!inside(xc, yc)) continue;
 
-				if (texel(df2, xc, yc) >= 1.0f) continue;
+				if (df2(xc, yc) >= 1.0f) continue;
 
-				texel(df2, x, y) = psk[i].z;
-				texel(mask, x, y) = psk[i].z;
+				df2(x, y) = psk[i].z;
+				mask(x, y) = psk[i].z;
 				break;
 			}
 		}
 	}
-	fp = fopen("sdf2.raw", "wb");
-	fwrite(mask, 1, RES*RES, fp);
-	fclose(fp);
+	mask.save("sdf2.raw");
 #endif
 
 // Outline
 #if 1
-	u8* outline = new u8[RES*RES];
+	Image<u8> outline;
 	for (int y = 0; y < RES-1; ++y)
 	{
 		for (int x = 0; x < RES-1; ++x)
 		{
-			u8 quad[4] = { texel(mask, x, y), texel(mask, x + 1,y), texel(mask, x,y + 1), texel(mask,x + 1,y + 1) };
+			u8 quad[4] = { mask(x, y), mask(x + 1,y), mask(x,y + 1), mask(x + 1,y + 1) };
 			u8 vmin = min(min(quad[0], quad[1]), min(quad[2], quad[3]));
 			u8 vmax = max(max(quad[0], quad[1]), max(quad[2], quad[3]));
 
-			texel(outline, x, y) = (vmin == 0 && vmax) ? 255 : 0;
+			outline(x, y) = (vmin == 0 && vmax) ? 255 : 0;
 		}
 	}
-	fp = fopen("outline.raw", "wb");
-	fwrite(outline, 1, RES*RES, fp);
-	fclose(fp);
+	outline.save("outline.raw");
 #endif
 
 // Clean-up outline from excessive pixels
@@ -186,12 +202,12 @@ int main()
 			{
 				int nx = x + ofs[i][0], ny = y + ofs[i][1];
 				if (nx < 0 || ny < 0 || nx == RES || ny == RES) continue;
-				if (texel(outline, nx, ny)) mask |= 1;
+				if (outline(nx, ny)) mask |= 1;
 			}
 
 			if (mask == 0xFF)
 			{
-				texel(outline, x, y) = 0;
+				outline(x, y) = 0;
 			}
 			else
 			{
@@ -205,31 +221,27 @@ int main()
 				}
 				if (continuous)
 				{
-					texel(outline, x, y) = 0;
+					outline(x, y) = 0;
 				}
 			}
 		}
 	}
-	fp = fopen("outline.raw", "wb");
-	fwrite(outline, 1, RES* RES, fp);
-	fclose(fp);
+	outline.save("outline.raw");
 #endif
 
 // walk the outline
 #if 1
-	u8* used = new u8[RES * RES];
-	memset(used, 0, RES* RES);
-	float* outlinef = new float[RES * RES];
-	memset(outlinef, 0, RES* RES * 4);
+	Image<u8> used;
+	Image<float> outlinef;
 
 	for (int y = 0; y < RES; ++y)
 	{
 		for (int x = 0; x < RES; ++x)
 		{
-			if (texel(outline, x, y) == 0 || texel(used, x, y)) continue;
+			if (outline(x, y) == 0 || used(x, y)) continue;
 
-			texel(outline, x, y) = 0;
-			texel(used, x, y) = 1;
+			outline(x, y) = 0;
+			used(x, y) = 1;
 
 			int xc = x, yc = y;
 
@@ -244,12 +256,12 @@ int main()
 
 					if ( ! inside(nx,ny )) continue;
 
-					if (texel(used, nx, ny)) continue;
-					if (texel(outline, nx, ny) == 0) continue;
+					if (used(nx, ny)) continue;
+					if (outline(nx, ny) == 0) continue;
 
-					texel(outline, nx, ny) = u8(value & 0xFF);
-					texel(outlinef, nx, ny) = value;
-					texel(used, nx, ny) = 1;
+					outline(nx, ny) = u8(value & 0xFF);
+					outlinef(nx, ny) = value;
+					used(nx, ny) = 1;
 
 					xn = nx;
 					yn = ny;
@@ -261,27 +273,22 @@ int main()
 			}
 		}
 	}
-	fp = fopen("uv.raw", "wb");
-	fwrite(outline, 1, RES* RES, fp);
-	fclose(fp);
+	outline.save("uv.raw");
 #endif
 
 // blur outline
 #if 1
 	for (int pass = 0; pass < 10; ++pass)
 	{
-		u8* dest_outline = new u8[RES * RES];
-		memcpy(dest_outline, outline, RES* RES);
-		u8* dest_used = new u8[RES * RES];
-		memcpy(dest_used, used, RES* RES);
-		float* dest_outlinef = new float[RES * RES];
-		memset(dest_outlinef, 0, RES* RES);
+		Image<u8> dest_outline;
+		Image<u8> dest_used;
+		Image<float> dest_outlinef;
 
 		for (int y = 0; y < RES; ++y)
 		{
 			for (int x = 0; x < RES; ++x)
 			{
-				if (texel(mask, x, y) == 0 || texel(mask, x, y) == SEARCH_DISTANCE || texel(used, x, y)) continue;
+				if (mask(x, y) == 0 || mask(x, y) == SEARCH_DISTANCE || used(x, y)) continue;
 
 				const int ofs[8][2] = { {-1,0},{0,1},{1,0},{0,-1}, {1,1}, {-1,1}, {1,-1}, {-1,-1} };
 				const float w[8] = { 1.0f, 1.0f, 1.0f, 1.0f, 0.77f, 0.77f, 0.77f, 0.77f };
@@ -295,32 +302,31 @@ int main()
 
 					if (!inside(nx,ny)) continue;
 
-					if (!texel(used, nx, ny)) continue;
+					if (!used(nx, ny)) continue;
 
-					sum += texel(outline, nx, ny);
+					sum += outline(nx, ny);
 					count++;
 
-					wsum += texel(outlinef, nx, ny);
+					wsum += outlinef(nx, ny);
 					wweight += w[i];
 				}
 				if (count)
 				{
-					texel(dest_outline, x, y) = sum / count;
-					texel(dest_outlinef, x, y) = wsum / wweight;
-					texel(dest_used, x, y) = 1;
+					dest_outline(x, y) = sum / count;
+					dest_outlinef(x, y) = wsum / wweight;
+					dest_used(x, y) = 1;
 				}
 			}
 		}
-		delete[] outline;
 		outline = dest_outline;
-		delete[] outlinef;
 		outlinef = dest_outlinef;
-		delete[] used;
 		used = dest_used;
 	}
-	fp = fopen("uv_blurred.raw", "wb");
-	fwrite(outline, 1, RES* RES, fp);
-	fclose(fp);
+	outline.save("uv_blurred.raw");
+
+	Image<u8> ofsave;
+	outlinef.convert_to(ofsave);
+	ofsave.save("uvf_blurred.raw");
 #endif
 
 	return 0;
