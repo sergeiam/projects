@@ -2,17 +2,15 @@
 #include <vector>
 #include <algorithm>
 
-#define RES 2048
-#define SEARCH_DISTANCE 20
+#define RES				2048
+#define SEARCH_DISTANCE	20
+#define DILATE_PASSES	8
+
+
 
 #pragma warning( disable: 4996 )
 
 typedef unsigned char u8;
-
-template< class T > T& texel(T* ptr, int x, int y)
-{
-	return ptr[x + y * RES];
-}
 
 bool inside(int x, int y) { return x >= 0 && y >= 0 && x < RES && y < RES; }
 
@@ -60,19 +58,32 @@ template< class T > struct Image
 	{
 		memset(m_data, 0, RES * RES * sizeof(T));
 	}
-	template< class T2 > void convert_to(Image<T2>& image, T2 base)
+	template< class T2 > void convert_to(Image<T2>& image, T base)
 	{
 		for (int i = 0; i < RES * RES; ++i)
 			image[i] = T2(m_data[i] * base);
 	}
-	void save(const char* filename)
+	bool save(const char* filename)
 	{
 		FILE* fp = fopen(filename, "wb");
-		if (fp)
-		{
-			fwrite(m_data, 1, RES * RES * sizeof(T), fp);
-			fclose(fp);
-		}
+		if (!fp) return false;
+
+		long bytes_written = fwrite(m_data, 1, RES * RES * sizeof(T), fp);
+		if (bytes_written != RES * RES * sizeof(T))
+			return false;
+		fclose(fp);
+		return true;
+	}
+	bool load(const char* filename)
+	{
+		FILE* fp = fopen(filename, "rb");
+		if (!fp) return false;
+
+		long bytes_read = fread(m_data, 1, RES * RES * sizeof(T), fp);
+		if (bytes_read != RES * RES * sizeof(T))
+			return false;
+		fclose(fp);
+		return true;
 	}
 };
 
@@ -82,14 +93,47 @@ template< class T1, class T2 > T1 max(T1 a, T2 b) { return (a > b) ? a : b; }
 int main()
 {
 	Image<u8> mask;
-	FILE* fp = fopen("map.raw", "rb");
-	if (!fp) return 1;
-	fread(mask.ptr(), 1, RES * RES, fp);
-	fclose(fp);
+	if (!mask.load("map.raw"))
+	{
+		printf("ERROR: failed to load map.raw file!\n");
+		return 1;
+	}
+
+	Image<u8> norm_x, norm_y;
 
 	Image<float> df;
 	for (int i = 0; i < RES * RES; ++i)
 		df[i] = mask[i] ? SEARCH_DISTANCE : 0.0f;
+
+	for (int i = 0; i < DILATE_PASSES*2; ++i)
+	{
+		Image<u8> dest_mask(mask);
+
+		const u8 dilation_mask = (i < DILATE_PASSES) ? 0 : 255;
+
+		for (int y = 0; y < RES; ++y)
+		{
+			for (int x = 0; x < RES; ++x)
+			{
+				if (mask(x, y) == dilation_mask) continue;
+
+				const int ofs[8][2] = { {-1,0},{0,-1},{0,1},{1,0},{1,1},{-1,1},{-1,-1},{1,-1} };
+				for (int i = 0; i < 4; ++i)
+				{
+					int nx = x + ofs[i][0], ny = y + ofs[i][1];
+					if (!inside(nx, ny)) continue;
+					if (mask(nx, ny) == dilation_mask)
+					{
+						dest_mask(x, y) = dilation_mask;
+						break;
+					}
+				}
+			}
+		}
+		mask = dest_mask;
+	}
+	mask.save("dilated_mask.raw");
+
 
 // compute signed distance field
 #if 1
@@ -166,11 +210,19 @@ int main()
 
 				df2(x, y) = psk[i].z;
 				mask(x, y) = psk[i].z;
+
+				float len = sqrtf(psk[i].x * psk[i].x + psk[i].y * psk[i].y);
+
+				norm_x(x, y) = psk[i].x * 127.0f / len + 128;
+				norm_y(x, y) = psk[i].y * 127.0f / len + 128;
+
 				break;
 			}
 		}
 	}
 	mask.save("sdf2.raw");
+	norm_x.save("norm_x.raw");
+	norm_y.save("norm_y.raw");
 #endif
 
 // Outline
@@ -192,36 +244,39 @@ int main()
 
 // Clean-up outline from excessive pixels
 #if 1
-	for (int y = 0; y < RES; ++y)
+	for (int pass = 0; pass < 2; ++pass)
 	{
-		for (int x = 0; x < RES; ++x)
+		for (int y = 0; y < RES; ++y)
 		{
-			int ofs[8][2] = {{-1,-1},{-1,0},{-1,1},{0,1},{1,1},{1,0},{1,-1},{0,-1}};
-			u8 mask = 0;
-			for (int i = 0; i < 8; ++i, mask <<= 1)
+			for (int x = 0; x < RES; ++x)
 			{
-				int nx = x + ofs[i][0], ny = y + ofs[i][1];
-				if (nx < 0 || ny < 0 || nx == RES || ny == RES) continue;
-				if (outline(nx, ny)) mask |= 1;
-			}
-
-			if (mask == 0xFF)
-			{
-				outline(x, y) = 0;
-			}
-			else
-			{
-				while (mask & 128) mask = (mask >> 1) | ((mask & 1) << 7);  // rotate right
-				while (mask && (mask & 1) == 0) mask >>= 1;
-
-				bool continuous = true;
-				for (; mask; mask >>= 1)
+				int ofs[8][2] = { {-1,-1},{-1,0},{-1,1},{0,1},{1,1},{1,0},{1,-1},{0,-1} };
+				u8 mask = 0;
+				for (int i = 0; i < 8; ++i, mask <<= 1)
 				{
-					if ((mask & 1) == 0) continuous = false;
+					int nx = x + ofs[i][0], ny = y + ofs[i][1];
+					if (!inside(nx,ny)) continue;
+					if (outline(nx, ny)) mask |= 1;
 				}
-				if (continuous)
+
+				if (mask == 0xFF)
 				{
 					outline(x, y) = 0;
+				}
+				else
+				{
+					while (mask & 128) mask = (mask >> 1) | ((mask & 1) << 7);  // rotate right
+					while (mask && (mask & 1) == 0) mask >>= 1;
+
+					bool continuous = true;
+					for (; mask; mask >>= 1)
+					{
+						if ((mask & 1) == 0) continuous = false;
+					}
+					if (continuous)
+					{
+						outline(x, y) = 0;
+					}
 				}
 			}
 		}
@@ -278,7 +333,9 @@ int main()
 
 // blur outline
 #if 1
-	for (int pass = 0; pass < 10; ++pass)
+	mask.save("debug_mask.raw");
+	used.save("debug_used.raw");
+	for (int pass = 0; pass < 1; ++pass)
 	{
 		Image<u8> dest_outline;
 		Image<u8> dest_used;
@@ -298,7 +355,8 @@ int main()
 
 				for (int i = 0; i < 8; ++i)
 				{
-					int nx = x + ofs[i][0], ny = y + ofs[i][1];
+					int nx = x + ofs[i][0];
+					int ny = y + ofs[i][1];
 
 					if (!inside(nx,ny)) continue;
 
@@ -325,7 +383,7 @@ int main()
 	outline.save("uv_blurred.raw");
 
 	Image<u8> ofsave;
-	outlinef.convert_to(ofsave);
+	outlinef.convert_to(ofsave, 1.0f);
 	ofsave.save("uvf_blurred.raw");
 #endif
 
