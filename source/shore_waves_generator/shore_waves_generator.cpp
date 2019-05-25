@@ -12,6 +12,10 @@
 
 typedef unsigned char u8;
 
+template< class T1, class T2 > T1 min(T1 a, T2 b) { return (a < b) ? a : b; }
+template< class T1, class T2 > T1 max(T1 a, T2 b) { return (a > b) ? a : b; }
+template< class T> u8 u8_clamp(T x) { return x<T(0) ? 0 : (x>T(255) ? 255 : u8(x)); }
+
 bool inside(int x, int y) { return x >= 0 && y >= 0 && x < RES && y < RES; }
 
 struct Vec3i
@@ -36,15 +40,17 @@ template< class T > struct Image
 	{
 		delete[] m_data;
 	}
-
 	void operator = (const Image& rhs)
 	{
 		memcpy(m_data, rhs.m_data, RES * RES * sizeof(T));
 	}
-
-	T& operator()(int x, int y)
+	T& at(int x, int y)
 	{
 		return m_data[x + y * RES];
+	}
+	T& operator()(int x, int y)
+	{
+		return at(x, y);
 	}
 	T& operator [] (int index)
 	{
@@ -85,10 +91,78 @@ template< class T > struct Image
 		fclose(fp);
 		return true;
 	}
+	void multiply_add(T mul, T add)
+	{
+		for (int i = 0; i < RES * RES; ++i)
+			m_data[i] = m_data[i] * mul + add;
+	}
 };
 
-template< class T1, class T2 > T1 min(T1 a, T2 b) { return (a < b) ? a : b; }
-template< class T1, class T2 > T1 max(T1 a, T2 b) { return (a > b) ? a : b; }
+void compute_distance_and_normals(Image<u8>& mask, int radius, Image<u8>& distance, Image<u8>* normal_x, Image<u8>* normal_y)
+{
+	std::vector<Vec3i> sk;
+	for (int y = -radius; y <= radius; ++y)
+	{
+		for (int x = -radius; x <= radius; ++x)
+		{
+			int dist = (int)sqrtf(x * x + y * y);
+			if (dist <= radius && (x || y))
+				sk.push_back(Vec3i(x, y, dist));
+		}
+	}
+	std::sort(sk.begin(), sk.end(), [](const Vec3i & a, const Vec3i & b) -> bool { return a.z < b.z; });
+
+	for (int i = 0; i < RES * RES; ++i)
+	{
+		distance[i] = mask[i] ? radius : 0;
+	}
+
+	const Vec3i* psk = &sk[0];
+	for (int y = 0; y < RES; ++y)
+	{
+		for (int x = 0; x < RES; ++x)
+		{
+			if (mask(x, y) == 0) continue;
+
+			for (int i = 0, n = sk.size(); i < n; ++i)
+			{
+				int xc = x + psk[i].x, yc = y + psk[i].y;
+
+				if (!inside(xc, yc)) continue;
+
+				if (mask(xc, yc) > 0) continue;
+
+				distance(x, y) = psk[i].z;
+
+				if (normal_x && normal_y)
+				{
+					int dx = psk[i].x, dy = psk[i].y, count = 1;
+					for (int found_distance = psk[i].z; i < n && psk[i].z <= found_distance+1; ++i)
+					{
+						int xc = x + psk[i].x, yc = y + psk[i].y;
+						if (!inside(xc, yc)) continue;
+						if (mask(xc, yc) > 0) continue;
+
+						dx += psk[i].x;
+						dy += psk[i].y;
+						count++;
+					}
+
+					float nx = dx / float(count);
+					float ny = dy / float(count);
+					float len = sqrtf(nx*nx + ny*ny);
+					float mul = 127.0f / len;
+
+					normal_x->at(x, y) = u8_clamp(nx * mul + 128.0f);
+					normal_y->at(x,y) = u8_clamp(ny * mul + 128.0f);
+				}
+				break;
+			}
+		}
+	}
+}
+
+
 
 int main()
 {
@@ -104,37 +178,7 @@ int main()
 	Image<float> df;
 	for (int i = 0; i < RES * RES; ++i)
 		df[i] = mask[i] ? SEARCH_DISTANCE : 0.0f;
-
-	for (int i = 0; i < DILATE_PASSES*2; ++i)
-	{
-		Image<u8> dest_mask(mask);
-
-		const u8 dilation_mask = (i < DILATE_PASSES) ? 0 : 255;
-
-		for (int y = 0; y < RES; ++y)
-		{
-			for (int x = 0; x < RES; ++x)
-			{
-				if (mask(x, y) == dilation_mask) continue;
-
-				const int ofs[8][2] = { {-1,0},{0,-1},{0,1},{1,0},{1,1},{-1,1},{-1,-1},{1,-1} };
-				for (int i = 0; i < 4; ++i)
-				{
-					int nx = x + ofs[i][0], ny = y + ofs[i][1];
-					if (!inside(nx, ny)) continue;
-					if (mask(nx, ny) == dilation_mask)
-					{
-						dest_mask(x, y) = dilation_mask;
-						break;
-					}
-				}
-			}
-		}
-		mask = dest_mask;
-	}
-	mask.save("dilated_mask.raw");
-
-
+	
 // compute signed distance field
 #if 1
 	for (int y = 0; y < RES; ++y)
@@ -174,56 +218,27 @@ int main()
 
 // compute brute-force distance field
 #if 1
-	std::vector<Vec3i> sk;
-	for (int y = -SEARCH_DISTANCE; y <= SEARCH_DISTANCE; ++y)
-	{
-		for (int x = -SEARCH_DISTANCE; x <= SEARCH_DISTANCE; ++x)
-		{
-			int dist = (int)sqrtf(x * x + y * y);
-			if (dist <= SEARCH_DISTANCE && (x || y))
-				sk.push_back(Vec3i(x, y, dist));
-		}
-	}
-	std::sort(sk.begin(), sk.end(), [](const Vec3i & a, const Vec3i & b) -> bool { return a.z < b.z; });
-
-	Image<float> df2;
-	for (int i = 0; i < RES * RES; ++i)
-	{
-		df2[i] = mask[i] ? SEARCH_DISTANCE : 0.0f;
-		mask[i] = mask[i] ? SEARCH_DISTANCE : 0;
-	}
-
-	const Vec3i* psk = &sk[0];
-	for (int y = 0; y < RES; ++y)
-	{
-		for (int x = 0; x < RES; ++x)
-		{
-			if (df2(x, y) < 1.0f) continue;
-
-			for (int i = 0, n = sk.size(); i < n; ++i)
-			{
-				int xc = x + psk[i].x, yc = y + psk[i].y;
-
-				if (!inside(xc, yc)) continue;
-
-				if (df2(xc, yc) >= 1.0f) continue;
-
-				df2(x, y) = psk[i].z;
-				mask(x, y) = psk[i].z;
-
-				float len = sqrtf(psk[i].x * psk[i].x + psk[i].y * psk[i].y);
-
-				norm_x(x, y) = psk[i].x * 127.0f / len + 128;
-				norm_y(x, y) = psk[i].y * 127.0f / len + 128;
-
-				break;
-			}
-		}
-	}
+	compute_distance_and_normals(mask, SEARCH_DISTANCE, mask, &norm_x, &norm_y);
 	mask.save("sdf2.raw");
 	norm_x.save("norm_x.raw");
 	norm_y.save("norm_y.raw");
 #endif
+
+// grow & dilate to smooth smaller coast features
+#if 1
+	Image<u8> grow(mask);
+	for (int i = 0; i < RES * RES; ++i)
+		grow[i] = (grow[i] < 8) ? 255 : 0;
+	grow.save("grow.raw");
+	compute_distance_and_normals(grow, 16, grow, nullptr, nullptr);
+
+	for (int i = 0; i < RES * RES; ++i)
+		grow[i] = (grow[i] < 12) ? 255 : 0;
+	grow.save("shrink.raw");
+
+#endif
+
+
 
 // Outline
 #if 1
