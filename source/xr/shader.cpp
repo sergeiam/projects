@@ -1,12 +1,12 @@
 #include <xr/shader.h>
 #include <xr/hash.h>
+#include <xr/file.h>
 
 namespace xr
 {
 	u32 hash(const RENDER_DEVICE::SHADER_SOURCE& ss)
 	{
-
-		return h;
+		return 0;// h;
 	}
 
 	SHADER::SHADER():
@@ -60,7 +60,7 @@ namespace xr
 
 		if (!s_text_map.find(file))
 		{
-			FILE* fp = FILE::open(filename, "rb");
+			FILE* fp = FILE::open(filename, FILE::READ);
 			if (!fp)
 			{
 				return false;

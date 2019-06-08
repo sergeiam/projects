@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28809.33
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fidel_game", "..\source\fidel_game\fidel_game.vcxproj", "{DEEF213C-CCD4-4C7C-97C3-32099E0076E6}"
 EndProject
@@ -22,6 +22,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cubemap_gen", "..\source\cubemap_gen\cubemap_gen.vcxproj", "{9BACDA21-BBFB-4E6A-B307-53713DC4A9ED}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wall_perimeter_generator", "..\source\wall_perimeter_generator\wall_perimeter_generator.vcxproj", "{9B0CBC7A-D1A1-44A5-9961-9FE53F144221}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "shore_waves_generator", "..\source\shore_waves_generator\shore_waves_generator.vcxproj", "{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "string_test", "..\source\string_test\string_test.vcxproj", "{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -111,8 +115,27 @@ Global
 		{9B0CBC7A-D1A1-44A5-9961-9FE53F144221}.Release|x64.Build.0 = Release|x64
 		{9B0CBC7A-D1A1-44A5-9961-9FE53F144221}.Release|x86.ActiveCfg = Release|Win32
 		{9B0CBC7A-D1A1-44A5-9961-9FE53F144221}.Release|x86.Build.0 = Release|Win32
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Debug|x64.ActiveCfg = Debug|x64
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Debug|x64.Build.0 = Debug|x64
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Debug|x86.ActiveCfg = Debug|Win32
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Debug|x86.Build.0 = Debug|Win32
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Release|x64.ActiveCfg = Release|x64
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Release|x64.Build.0 = Release|x64
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Release|x86.ActiveCfg = Release|Win32
+		{D25F21A9-BFE2-47FD-A8D4-52207F0DDF2F}.Release|x86.Build.0 = Release|Win32
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Debug|x64.ActiveCfg = Debug|x64
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Debug|x64.Build.0 = Debug|x64
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Debug|x86.ActiveCfg = Debug|Win32
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Debug|x86.Build.0 = Debug|Win32
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Release|x64.ActiveCfg = Release|x64
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Release|x64.Build.0 = Release|x64
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Release|x86.ActiveCfg = Release|Win32
+		{A591EA19-B0FD-4A69-AB49-3FD3E0E863BC}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C164354B-BA1F-42C0-BBCF-683D0CF59832}
 	EndGlobalSection
 EndGlobal

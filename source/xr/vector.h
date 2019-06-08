@@ -14,11 +14,13 @@ namespace xr
 		{
 			set_capacity(size);
 		}
-		VECTOR(const VECTOR<T>&& rhs)
+		VECTOR(VECTOR<T>&& rhs)
 		{
 			m_ptr = rhs.m_ptr;
 			m_size = rhs.m_size;
 			m_capacity = rhs.m_capacity;
+			rhs.m_ptr = nullptr;
+			rhs.m_size = rhs.m_capacity = 0;
 		}
 		~VECTOR()
 		{
@@ -66,12 +68,23 @@ namespace xr
 			ASSERT(index >= 0 && index < m_size);
 			return m_ptr[index];
 		}
-		void operator = (const VECTOR<T>& v)
+		void operator = (const VECTOR<T>& rhs)
 		{
 			delete[] m_ptr;
-			m_size = m_capacity = v.size();
+			m_size = m_capacity = rhs.size();
 			m_ptr = new T[m_size];
-			memcpy(m_ptr, v.m_ptr, m_size * sizeof(T));
+			memcpy(m_ptr, rhs.m_ptr, m_size * sizeof(T));
+		}
+		void operator = (VECTOR<T>&& rhs)
+		{
+			if (this == &rhs) return;
+
+			clear();
+			m_ptr = rhs.m_ptr;
+			m_size = rhs.m_size;
+			m_capacity = rhs.m_capacity;
+			rhs.m_ptr = nullptr;
+			rhs.m_size = rhs.m_capacity = 0;
 		}
 		void fill(const T& x)
 		{

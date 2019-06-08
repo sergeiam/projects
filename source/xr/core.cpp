@@ -1,4 +1,4 @@
-#include <xr/core.h>"
+#include <xr/core.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <Windows.h>

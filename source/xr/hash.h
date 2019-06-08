@@ -127,8 +127,58 @@ namespace xr
 			}
 			m_size = 0;
 		}
+		
+		struct iterator
+		{
+			iterator(int b, int e) : bucket(b), element(e) {}
+
+			void operator++ (int)
+			{
+				increment();
+			}
+			void operator++ ()
+			{
+				increment();
+			}
+			T& operator*()
+			{
+				return m_pool[bucket][element];
+			}
+		private:
+			int bucket, element;
+
+			void increment()
+			{
+				if (element + 1 < m_pool[bucket].size())
+					element++;
+				else
+				{
+					bucket = next_bucket(bucket + 1);
+					element = 0;
+				}
+			}
+		};
+
+		iterator begin()
+		{
+			return iterator(next_bucket(0), 0);
+		}
+		iterator end()
+		{
+			return iterator(-1, 0);
+		}
 
 	private:
+		int next_bucket(int curr) const
+		{
+			for (int i = curr, n = m_pool.size(); i < n; ++i)
+			{
+				if (m_pool[i].empty()) continue;
+				return iterator(i, 0);
+			}
+			return -1;
+		}
+
 		struct ITEM
 		{
 			K	key;

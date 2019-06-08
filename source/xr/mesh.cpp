@@ -1,4 +1,5 @@
-#include "mesh.h"
+#include <xr/mesh.h>
+#include <xr/file.h>
 #include <stdio.h>
 
 namespace xr
@@ -122,7 +123,7 @@ namespace xr
 
 	bool MESH::write_obj(const char* filename)
 	{
-		FILE* fp = FILE::open(filename, "wb");
+		FILE* fp = FILE::open(filename, FILE::WRITE | FILE::TRUNC);
 		if (!fp) {
 			log("ERROR: can not create '%s' file!\n", filename);
 			return false;
@@ -143,7 +144,7 @@ namespace xr
 	{
 		clear();
 
-		FILE* fp = FILE::open(filename, "wb");
+		FILE* fp = FILE::open(filename, FILE::READ );
 		if (!fp) {
 			log("ERROR: can not open '%s' file!\n", filename);
 			return false;

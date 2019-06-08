@@ -66,6 +66,18 @@ namespace xr
 			CLEAR_STENCIL = 1 << 1,
 		};
 
+		class RESOURCE
+		{
+		public:
+			virtual ~RESOURCE() {}
+
+			void add_name(const char* name);
+			const char* get_name() const { return m_name.c_str(); }
+
+		protected:
+			STRING	m_name;
+		};
+
 		struct TEXTURE_PARAMS
 		{
 			FORMAT	format;
@@ -75,10 +87,8 @@ namespace xr
 			u32		flags;
 		};
 
-		struct TEXTURE
+		struct TEXTURE : public RESOURCE
 		{
-			virtual ~TEXTURE() {}
-
 			const TEXTURE_PARAMS& params() const { return m_params; }
 		protected:
 			TEXTURE_PARAMS	m_params;
@@ -98,16 +108,16 @@ namespace xr
 			u32		depth_pitch;
 		};
 
-		struct BUFFER
+		struct BUFFER : public RESOURCE
 		{
-			virtual ~BUFFER() {}
-
 			virtual bool map(MAPPED_DATA& md, u32 flags) = 0;
 			virtual void unmap() = 0;
 
-			const BUFFER_PARAMS& params() const { return m_params; }
+			u32 size() const { return m_size; }
+			u32 flags() const { return m_flags; }
 		protected:
-			BUFFER_PARAMS	m_params;
+			u32		m_size;
+			u32		m_flags;
 		};
 
 
@@ -218,28 +228,25 @@ namespace xr
 		struct RENDER_STATE_PARAMS
 		{
 			u8						flags = RSF_DEPTH_WRITE;
-			// depth stencil state
 			CMP						depth_func : 8;
+			CULL					cull_mode : 8;
+
 			STENCIL*				stencil = nullptr;
 
-			// rasterizer state
-			CULL					cull_mode = CULL_BACK;
 			i32						depth_bias = 0;
 			float					slope_scale_depth_bias = 0.0f;
 			// blend state
 			VECTOR<RENDER_TARGET_BLEND_STATE>	blend_states;
 
-			RENDER_STATE_PARAMS() : depth_func(CMP_LESS) {}
+			RENDER_STATE_PARAMS() : depth_func(CMP_LESS), cull_mode(CULL_BACK) {}
 			~RENDER_STATE_PARAMS()
 			{
 				delete stencil;
 			}
 		};
 
-		struct RENDER_STATE
+		struct RENDER_STATE : public RESOURCE
 		{
-			virtual ~RENDER_STATE() {}
-
 			const RENDER_STATE_PARAMS& params() const { return m_params; }
 
 		protected:
@@ -254,8 +261,8 @@ namespace xr
 
 		struct SHADER_SOURCE
 		{
-			const char*		source;
-			STR_ID			filename;
+			STRING			source;
+			STRING			filename;
 			STR_ID			entry_function_name;
 			STR_ID			profile;
 			u32				flags;
@@ -263,7 +270,7 @@ namespace xr
 			const VECTOR<STR_ID>*	macro_definitions;
 		};
 
-		struct SHADER
+		struct SHADER : public RESOURCE
 		{
 			virtual ~SHADER() {}
 		};
@@ -292,13 +299,9 @@ namespace xr
 			SHADER_BYTECODE*	vs_bytecode;
 		};
 
-		struct INPUT_LAYOUT
+		struct INPUT_LAYOUT : public RESOURCE
 		{
 			virtual ~INPUT_LAYOUT() {}
-
-			const IL_PARAMS& params() const { return m_params; }
-		protected:
-			IL_PARAMS	m_params;
 		};
 
 		struct DEVICE_PARAMS

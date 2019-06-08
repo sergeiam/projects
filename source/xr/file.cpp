@@ -33,9 +33,9 @@ namespace xr
 				case WRITE | TRUNC: creation |= CREATE_ALWAYS; break;
 				case WRITE | READ | TRUNC: creation |= CREATE_ALWAYS; break;
 			}
-			DWORD flags = FILE_ATTRIBUTE_NORMAL;
+			DWORD f = FILE_ATTRIBUTE_NORMAL;
 
-			m_fp = ::CreateFileA(file, access, share_mode, NULL, creation, flags, NULL);
+			m_fp = ::CreateFileA(file, access, share_mode, NULL, creation, f, NULL);
 		}
 
 		bool initialized()
@@ -183,9 +183,9 @@ namespace xr
 		}
 	};
 
-	FILE* FILE::open(const char* file, const char* mode)
+	FILE* FILE::open(const char* file, u32 flags)
 	{
-		FILE_WIN32* ptr = new FILE_WIN32(file, mode);
+		FILE_WIN32* ptr = new FILE_WIN32(file, flags);
 		if (ptr->initialized())
 			return ptr;
 
