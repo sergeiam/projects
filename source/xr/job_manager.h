@@ -2,10 +2,16 @@
 
 #include <functional>
 
-namespace xr {
+namespace xr
+{
+	typedef int JOB_HANDLE;
 
-	void job_manager_init(int num_threads);
-	void job_manager_done();
+	void jobs_init(int num_threads);
+	void jobs_done();
 
-	void job_manager_add_job(std::function<void()> func);
+	JOB_HANDLE jobs_add(std::function<void()> func, int job_type, int job_type_wait);
+
+	void jobs_wait_job(JOB_HANDLE h);
+	void jobs_wait_type(int job_type);
+	void jobs_wait_all();
 }
