@@ -2,5 +2,30 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="shore_waves_generator.cpp" />
+    <ClCompile Include="..\xr\job_manager.cpp">
+      <Filter>xr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\threads.cpp">
+      <Filter>xr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\time.cpp">
+      <Filter>xr</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="xr">
+      <UniqueIdentifier>{4cb9275f-935e-4192-ac45-9c6726e1e6be}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\xr\job_manager.h">
+      <Filter>xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\threads.h">
+      <Filter>xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\time.h">
+      <Filter>xr</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

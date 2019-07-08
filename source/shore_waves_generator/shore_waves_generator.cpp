@@ -2,6 +2,9 @@
 #include <vector>
 #include <algorithm>
 
+#include <xr/job_manager.h>
+#include <xr/time.h>
+
 #define RES				2048
 #define SEARCH_DISTANCE	20
 #define DILATE_PASSES	8
@@ -104,6 +107,8 @@ public:
 	}
 };
 
+#define THREADS
+
 void compute_distance_and_normals(Image<u8>& mask, int radius, Image<u8>& distance, Image<u8>* normal_x, Image<u8>* normal_y)
 {
 	std::vector<Vec3i> sk;
@@ -123,51 +128,70 @@ void compute_distance_and_normals(Image<u8>& mask, int radius, Image<u8>& distan
 		distance[i] = mask[i] ? radius : 0;
 	}
 
+	xr::TIME_SCOPE ts;
+
 	const size_t res = mask.resolution();
 
 	const Vec3i* psk = &sk[0];
+#ifndef THREADS
 	for (size_t y = 0; y < res; ++y)
 	{
-		for (size_t x = 0; x < res; ++x)
-		{
-			if (mask(x, y) == 0) continue;
-
-			for (int i = 0, n = sk.size(); i < n; ++i)
+#else
+	for (size_t yt = 0; yt < res; yt += 32)
+	{
+		xr::jobs_add([res, yt, &mask, psk, &sk, &distance, normal_x, normal_y]() -> void
 			{
-				int xc = x + psk[i].x, yc = y + psk[i].y;
-
-				if (!inside(xc, yc)) continue;
-
-				if (mask(xc, yc) > 0) continue;
-
-				distance(x, y) = psk[i].z;
-
-				if (normal_x && normal_y)
-				{
-					int dx = psk[i].x, dy = psk[i].y, count = 1;
-					for (int found_distance = psk[i].z; i < n && psk[i].z <= found_distance+1; ++i)
+				for (size_t y = yt; y < yt + 32; ++y) {
+#endif
+					for (size_t x = 0; x < res; ++x)
 					{
-						int xc = x + psk[i].x, yc = y + psk[i].y;
-						if (!inside(xc, yc)) continue;
-						if (mask(xc, yc) > 0) continue;
+						if (mask(x, y) == 0) continue;
 
-						dx += psk[i].x;
-						dy += psk[i].y;
-						count++;
+						for (int i = 0, n = sk.size(); i < n; ++i)
+						{
+							int xc = x + psk[i].x, yc = y + psk[i].y;
+
+							if (!inside(xc, yc)) continue;
+
+							if (mask(xc, yc) > 0) continue;
+
+							distance(x, y) = psk[i].z;
+
+							if (normal_x && normal_y)
+							{
+								int dx = psk[i].x, dy = psk[i].y, count = 1;
+								for (int found_distance = psk[i].z; i < n && psk[i].z <= found_distance + 1; ++i)
+								{
+									int xc = x + psk[i].x, yc = y + psk[i].y;
+									if (!inside(xc, yc)) continue;
+									if (mask(xc, yc) > 0) continue;
+
+									dx += psk[i].x;
+									dy += psk[i].y;
+									count++;
+								}
+
+								float nx = dx / float(count);
+								float ny = dy / float(count);
+								float len = sqrtf(nx * nx + ny * ny);
+								float mul = 127.0f / len;
+
+								normal_x->at(x, y) = u8_clamp(nx * mul + 128.0f);
+								normal_y->at(x, y) = u8_clamp(ny * mul + 128.0f);
+							}
+							break;
+						}
 					}
 
-					float nx = dx / float(count);
-					float ny = dy / float(count);
-					float len = sqrtf(nx*nx + ny*ny);
-					float mul = 127.0f / len;
-
-					normal_x->at(x, y) = u8_clamp(nx * mul + 128.0f);
-					normal_y->at(x,y) = u8_clamp(ny * mul + 128.0f);
-				}
-				break;
-			}
-		}
+#ifdef THREADS
+				}}, 0, 0);
+#endif
 	}
+
+#ifdef THREADS
+	xr::jobs_wait_all();
+#endif
+	printf("%d ms\n", ts.measure_duration_ms());
 }
 
 void smooth_coast(Image<u8>& mask, int radius)
@@ -185,6 +209,8 @@ void smooth_coast(Image<u8>& mask, int radius)
 
 int main()
 {
+	xr::jobs_init(4);
+
 	Image<u8> mask(2048), norm_x(2048), norm_y(2048);
 	if (!mask.load("map.raw"))
 	{
@@ -192,7 +218,7 @@ int main()
 		return 1;
 	}
 
-	smooth_coast(mask, 16);
+	smooth_coast(mask, 32);
 
 	mask.save("map_smooth.raw");
 
