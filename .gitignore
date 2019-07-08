@@ -37,3 +37,5 @@
 *.VC.db
 *.iobj
 *.ipdb
+*.ipch
+intermediate\*
