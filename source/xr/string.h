@@ -4,6 +4,9 @@
 #include <xr/vector.h>
 #include <string.h>
 
+#define STRING_ID_USE_POOL
+#define STRING_ID_POOL_GROW		65536
+
 namespace xr
 {
 	class STRING
@@ -88,12 +91,32 @@ namespace xr
 		bool operator < (const STR_ID& rhs) const
 		{
 			if (m_str == rhs.m_str) return false;
-			return strcmp(m_str, rhs.m_str) < 0;
+			return strcmp(c_str(), rhs.c_str()) < 0;
 		}
 		void operator = (const STR_ID& rhs)
 		{
 			m_str = rhs.m_str;
 		}
+		u32 size() const
+		{
+			return strlen(c_str());
+		}
+#ifdef STRING_ID_USE_POOL
+		const char* c_str() const
+		{
+			return m_pool + m_str;
+		}
+		bool empty() const
+		{
+			return !m_str;
+		}
+	private:
+		u32 construct(const char* str);
+
+		u32	m_str;
+
+		static char* m_pool;
+#else
 		const char* c_str() const
 		{
 			return m_str;
@@ -102,14 +125,10 @@ namespace xr
 		{
 			return !m_str[0];
 		}
-		u32 size() const
-		{
-			return strlen(m_str);
-		}
-
 	private:
 		const char* construct(const char* str);
-		const char*	m_str;
+		const char* m_str;
+#endif
 	};
 
 	u32 hash(STR_ID x) { return hash(x.c_str()); }

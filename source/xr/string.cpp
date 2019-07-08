@@ -1,5 +1,6 @@
 #include <xr/string.h>
 #include <xr/hash.h>
+#include <mutex>
 
 namespace xr
 {
@@ -59,26 +60,77 @@ namespace xr
 		return STRING(c_str() + p0, p1 - p0 + 1);
 	}
 
-	static HASH_MAP<const char*, char*> s_strid_hashmap;
-
 	STR_ID::STR_ID()
 	{
-		static const char* empty = construct("");
+		static auto empty = construct("");
 		m_str = empty;
 	}
 
+	static std::mutex	s_strid_mutex;
+
+#ifdef STRING_ID_USE_POOL
+	static HASH_MAP<const char*, u32> s_strid_hashmap;
+
+	char* STR_ID::m_pool;
+	static u32	s_strid_pool_size;
+	static u32	s_strid_pool_capacity;
+
+
+	u32 STR_ID::construct(const char* str)
+	{
+		s_strid_mutex.lock();
+
+		u32 ptr;
+		if (s_strid_hashmap.find(str, ptr))
+		{
+			s_strid_mutex.unlock();
+			return ptr;
+		}
+
+		int len = strlen(str);
+
+		if (s_strid_pool_size + len >= s_strid_pool_capacity)
+		{
+			s_strid_pool_capacity += STRING_ID_POOL_GROW;
+			char* new_pool = new char[s_strid_pool_capacity];
+			memcpy(new_pool, m_pool, s_strid_pool_size);
+			delete[] m_pool;
+			m_pool = new_pool;
+		}
+
+		ptr = s_strid_pool_size;
+		strcpy(m_pool + ptr, str);
+		s_strid_pool_size += len + 1;
+
+		s_strid_hashmap.insert(m_pool + ptr, ptr);
+
+		s_strid_mutex.unlock();
+		return ptr;
+	}
+
+#else
+
+	static HASH_MAP<const char*, char*> s_strid_hashmap;
+
 	const char* STR_ID::construct(const char* str)
 	{
+		s_strid_mutex.lock();
+
 		char* ptr = nullptr;
 		if (s_strid_hashmap.find(str, ptr))
 		{
+			s_strid_mutex.unlock();
 			return ptr;
 		}
+
 		char* copy = new char[strlen(str) + 1];
 		strcpy(copy, str);
 		s_strid_hashmap.insert(str, copy);
+
+		s_strid_mutex.unlock();
 		return copy;
 	}
+#endif
 
 	STRING_HOLDER STRING_HOLDER::duplicate(const char* str)
 	{
