@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{5e2f14e9-e44d-4247-9712-874582ca1ec9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\sdk">
+      <UniqueIdentifier>{9047f0eb-47cc-4bbb-96e3-07dc843f1d82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\sdk\pugixml">
+      <UniqueIdentifier>{6c79cc97-6db7-4cca-8913-e3b85b9e9e03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\xr">
+      <UniqueIdentifier>{bb33e5bb-9d24-41db-a2a8-9b0218b2ca46}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="binary_vs_xml_loading.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\sdk\pugixml\src\pugixml.cpp">
+      <Filter>source\sdk\pugixml</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\time.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\xr\time.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="streams.h">
+      <Filter>source</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
