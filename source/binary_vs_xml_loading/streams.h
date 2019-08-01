@@ -85,7 +85,6 @@ template< class T > void serialize(STREAM_WRITE_BINARY& s, const char* tag, vect
 }
 #endif
 
-
 #if 1
 struct STREAM_WRITE_XML
 {
@@ -155,7 +154,6 @@ template< class T > void serialize(STREAM_WRITE_XML& s, const char* tag, vector<
 	s.serialize_vector(tag, x);
 }
 #endif
-
 
 #if 1
 struct STREAM_READ_BINARY
@@ -236,13 +234,14 @@ template< class T > void serialize(STREAM_READ_BINARY& s, const char* tag, vecto
 }
 #endif
 
-
+#if 1
 struct STREAM_READ_XML
 {
 	STREAM_READ_XML(const char* filename)
 	{
 		m_doc.load_file(filename);
 		m_nodes.push_back( m_doc.first_child());
+		m_curr_child.push_back(m_nodes.begin()->first_child());
 	}
 	~STREAM_READ_XML()
 	{
@@ -278,23 +277,21 @@ struct STREAM_READ_XML
 	}
 	void begin_structure(const char* name)
 	{
-		m_nodes.back().ch
-/*		m_nodes.push_back( m_nodes.back().first_)
-		m_nodes.back()
-		m_node = m_node.find_child(name);
-		m_node.ne*/
+		m_nodes.push_back(m_curr_child.back());
+		m_curr_child.push_back(m_nodes.back().first_child());
 	}
 	void end_structure()
 	{
-		m_nodes.back() = m_nodes.back().next_sibling();
-		if (m_nodes.back().empty())
-			m_nodes.pop_back();
+		m_nodes.pop_back();
+		m_curr_child.pop_back();
+		m_curr_child.back() = m_curr_child.back().next_sibling();
 	}
 
 private:
 	pugi::xml_document	m_doc;
-	pugi::xml_node		m_node;
+
 	vector<pugi::xml_node>	m_nodes;
+	vector<pugi::xml_node>	m_curr_child;
 };
 
 void serialize(STREAM_READ_XML& s, const char* tag, int& x)
@@ -321,3 +318,4 @@ template< class T > void serialize(STREAM_READ_XML& s, const char* tag, vector<T
 {
 	s.serialize_vector(tag, x);
 }
+#endif
