@@ -38,4 +38,6 @@
 *.iobj
 *.ipdb
 *.ipch
-intermediate\*
+intermediate/
+binaries/
+.vs/
