@@ -22,9 +22,9 @@ namespace xr
 		virtual u64		size() = 0;
 		virtual u64		get_last_write_time() = 0;
 
+		void			printf(const char* format, ...);
+
 		static FILE*	open(const char* file, u32 flags);
 		static FILE*	std_out();
 	};
-
-	void fast_printf(FILE* f, const char* format, ...);
 }

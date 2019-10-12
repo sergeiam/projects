@@ -2,7 +2,9 @@
 
 #include <memory.h>
 
-#define ASSERT(x) do{if(!(x)) __asm{ int 3 }}while(0)
+#define DEBUG_BREAK() __debugbreak()
+
+#define ASSERT(x) do{if(!(x)) DEBUG_BREAK();}while(0)
 
 typedef unsigned char		u8;
 typedef unsigned short		u16;
@@ -49,6 +51,7 @@ namespace xr
 	inline u32 hash(u8 x) { return x; }
 	inline u32 hash(u16 x) { return x; }
 	inline u32 hash(u32 x) { return x; }
+	inline u32 hash(float x) { return *((u32*)&x); }
 	inline u32 hash(void* x) { return sizeof(x) == 4 ? u32(x) : (u32(x) ^ (u64(x) >> 32U)); }
 	u32 hash_string(const char* str);
 

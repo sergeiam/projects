@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="2d_tests.cpp" />
+    <ClCompile Include="..\xr\sprite_render_window.cpp">
+      <Filter>xr</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="xr">
+      <UniqueIdentifier>{5e1f714b-3ab3-4310-aa22-abad28de2fa7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\xr\sprite_render_window.h">
+      <Filter>xr</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

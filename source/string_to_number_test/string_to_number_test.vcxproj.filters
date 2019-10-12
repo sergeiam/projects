@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{1aa90ab0-a998-4d0c-a21e-bf0346437442}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\xr">
+      <UniqueIdentifier>{2728b378-d37f-440b-af25-92fdd7c9d559}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="string_to_number_test.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\time.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\xr\time.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

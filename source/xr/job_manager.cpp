@@ -4,7 +4,7 @@
 #include <process.h>
 #include <windows.h>
 
-#define MAX_JOBS 1024
+#define MAX_JOBS 4096
 #define MAX_WORKER_THREADS 32
 
 namespace xr
@@ -14,12 +14,13 @@ namespace xr
 	struct JOB
 	{
 		std::function<void()> f;
-		int	type, type_wait;
-		int	next;
+		u32*	counter;
+		u32*	counter_to_wait;
+		int		next;
 		EVENT	event;
 	};
 
-	JOB		s_jobs[1024];
+	JOB		s_jobs[MAX_JOBS];
 	int		s_free;
 	int		s_first;
 	int		s_num_jobs;
@@ -32,7 +33,7 @@ namespace xr
 	uintptr_t	s_worker_threads[MAX_WORKER_THREADS];
 
 
-	JOB_HANDLE jobs_add(std::function<void()> func, int job_type, int job_type_wait)
+	JOB_HANDLE jobs_add(std::function<void()> func, u32& counter, u32* counter_to_wait)
 	{
 		CS_SCOPE(s_cs);
 
@@ -47,13 +48,15 @@ namespace xr
 		JOB& job = s_jobs[curr];
 
 		job.f = func;
-		job.type_wait = job_type_wait;
-		job.type = job_type;
+		job.counter_to_wait = counter_to_wait;
+		job.counter = &counter;
 		job.next = s_first;
 
 		s_first = curr;
 
-		s_job_type_count[job_type]++;
+		if (counter)
+			InterlockedIncrement(&counter);
+
 		s_num_jobs++;
 
 		s_any_job.signal();
@@ -74,7 +77,10 @@ namespace xr
 
 	void jobs_wait_all()
 	{
-		s_no_jobs.wait();
+		if (s_num_jobs)
+		{
+			s_no_jobs.wait();
+		}
 	}
 
 	unsigned __stdcall jobs_worker_thread(void*)

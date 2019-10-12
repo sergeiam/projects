@@ -65,7 +65,7 @@ namespace xr
 				m_pool.resize((m_pool_mask + 1) * 2);
 				m_pool_mask = m_pool_mask*2 + 1;
 
-				for (u32 i = 0; i <= in; ++i)
+				for (u32 i = 0; i < in; ++i)
 				{
 					for (int j = 0, jn = old_pool[i].size(); j < jn; ++j)
 					{
@@ -140,9 +140,9 @@ namespace xr
 			{
 				increment();
 			}
-			T& operator*()
+			V& operator*()
 			{
-				return m_pool[bucket][element];
+				return m_pool[bucket][element].value;
 			}
 		private:
 			int bucket, element;

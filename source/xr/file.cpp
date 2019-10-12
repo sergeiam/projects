@@ -14,6 +14,7 @@ namespace xr
 		HANDLE	m_fp;
 		u8		m_buffer[FILE_BUFFER_SIZE];
 		u32		m_pos, m_buffer_size;
+		bool	m_read_once;
 
 		FILE_WIN32(const char* file, u32 flags) : m_pos(0), m_buffer_size(0)
 		{
@@ -36,6 +37,8 @@ namespace xr
 			DWORD f = FILE_ATTRIBUTE_NORMAL;
 
 			m_fp = ::CreateFileA(file, access, share_mode, NULL, creation, f, NULL);
+
+			m_read_once = false;
 		}
 
 		bool initialized()
@@ -87,6 +90,8 @@ namespace xr
 		}
 		virtual u32 read(void* ptr, u32 size)
 		{
+			m_read_once = true;
+
 			u32 read_size = 0;
 			while (read_size < size)
 			{
@@ -129,7 +134,7 @@ namespace xr
 		}
 		virtual bool eof()
 		{
-			return m_pos == m_buffer_size && m_buffer_size < FILE_BUFFER_SIZE;
+			return m_read_once && m_pos == m_buffer_size && m_buffer_size < FILE_BUFFER_SIZE;
 		}
 		virtual u64 size()
 		{
@@ -154,7 +159,7 @@ namespace xr
 			for (; size > 0; size -= 1024, p += 1024)
 			{
 				int len = Min(size, (u32)1024);
-				strncpy(buf, p, len);
+				strncpy_s(buf, p, len);
 				buf[len] = 0;
 				printf("%s", buf);
 				OutputDebugStringA(buf);
@@ -257,7 +262,7 @@ namespace xr
 		return ptr - buf;
 	}
 
-	void fast_printf(FILE* f, const char* format, ...)
+	void FILE::printf(const char* format, ...)
 	{
 		va_list args;
 		va_start(args, format);
@@ -272,12 +277,12 @@ namespace xr
 			switch (c)
 			{
 			case 0:
-				f->write(str_begin, format - str_begin - 1);
+				write(str_begin, format - str_begin - 1);
 				va_end(args);
 				return;
 			case '%':
 			{
-				f->write(str_begin, format - str_begin - 1);
+				write(str_begin, format - str_begin - 1);
 
 				int precision = 2;
 
@@ -285,19 +290,19 @@ namespace xr
 				switch (cn)
 				{
 				case '%':
-					f->write("%", 1);
+					write("%", 1);
 					break;
 				case 'd':
 				{
 					int value = va_arg(args, int);
 					int len = print_int(buf, value);
-					f->write(buf, len);
+					write(buf, len);
 					break;
 				}
 				case 's':
 				{
 					const char* str = va_arg(args, const char*);
-					f->write(str, strlen(str));
+					write(str, strlen(str));
 					break;
 				}
 				case '.':
@@ -310,7 +315,7 @@ namespace xr
 				{
 					float value = va_arg(args, double);
 					int len = print_float(buf, value, precision);
-					f->write(buf, len);
+					write(buf, len);
 					break;
 				}
 				}

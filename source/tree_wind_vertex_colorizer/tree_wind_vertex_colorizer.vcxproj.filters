@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{1fd50958-be9a-453d-aa5a-46269b676845}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\xr">
+      <UniqueIdentifier>{acc55c8d-437f-4721-a6a0-da60a5d11fa2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\xr\core">
+      <UniqueIdentifier>{0ba0e938-bad4-4ecb-a074-2128ff3e04f1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\xr\mesh.cpp">
+      <Filter>source\xr</Filter>
+    </ClCompile>
+    <ClCompile Include="tree_wind_vertex_colorizer.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\file.cpp">
+      <Filter>source\xr\core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xr\core.cpp">
+      <Filter>source\xr\core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\xr\mesh.h">
+      <Filter>source\xr</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\file.h">
+      <Filter>source\xr\core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\xr\core.h">
+      <Filter>source\xr\core</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
