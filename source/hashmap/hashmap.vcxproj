@@ -143,6 +143,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="verify_hashmaps.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="hashmap_robinhood.h" />

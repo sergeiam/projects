@@ -5,5 +5,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="verify_hashmaps.cpp" />
   </ItemGroup>
 </Project>
