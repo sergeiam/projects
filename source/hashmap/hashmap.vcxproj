@@ -152,6 +152,7 @@
     <ClCompile Include="verify_hashmaps.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="hashmap_flatlist.h" />
     <ClInclude Include="hashmap_robinhood.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

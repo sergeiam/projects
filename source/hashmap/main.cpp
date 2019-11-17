@@ -11,6 +11,7 @@
 #include <string>
 
 #include "hashmap_robinhood.h"
+#include "hashmap_flatlist.h"
 
 #ifndef _DEBUG
 	#define ASSERT(x)
@@ -20,8 +21,8 @@
 
 #define MAX_TESTS 16
 
-#define VALUE_TYPE BigObject
-//#define VALUE_TYPE int
+//#define VALUE_TYPE BigObject
+#define VALUE_TYPE int
 
 
 
@@ -144,7 +145,7 @@ template< class T, class V > void test_container(const char* name, int Range, in
 void print_statistics(const char* test_name)
 {
 	printf("\n=== %s =====================================\n", test_name);
-	printf("\t");
+	printf("\t\t");
 	for (int i = 0; i < g_containers; ++i)
 		printf("\t%s ", g_container_names[i].c_str());
 	printf("\n");
@@ -164,25 +165,30 @@ void test(const char* test_name, int Range, int insert_num, int find_num, int er
 	g_containers = 0;
 
 	std::unordered_map<int, VALUE_TYPE> stl_map;
-	test_container<std::unordered_map<int, VALUE_TYPE>, VALUE_TYPE>(	"STL ", Range, insert_num, find_num, erase_num, g_containers++, stl_map);
+	test_container<std::unordered_map<int, VALUE_TYPE>, VALUE_TYPE>("STL ", Range, insert_num, find_num, erase_num, g_containers++, stl_map);
 
-	hashmap_robinhood<int, VALUE_TYPE> rh_map(15);
-	test_container<hashmap_robinhood<int, VALUE_TYPE>, VALUE_TYPE>(		"R.H.", Range, insert_num, find_num, erase_num, g_containers++, rh_map);
+	hashmap_robinhood<int, VALUE_TYPE> rh_map(16);
+	test_container<hashmap_robinhood<int, VALUE_TYPE>, VALUE_TYPE>("RobinHood", Range, insert_num, find_num, erase_num, g_containers++, rh_map);
+
+	hashmap_flatlist<int, VALUE_TYPE> fl_map(16);
+	test_container<hashmap_flatlist<int, VALUE_TYPE>, VALUE_TYPE>("FlatList", Range, insert_num, find_num, erase_num, g_containers++, fl_map);
 
 	print_statistics(test_name);
 }
 
 int main()
 {
-#ifdef _D43EBUG
+#ifdef _DEBUG
 	int insert_num = 35'000;
 	int find_num = 15'000;
+	int erase_num = 7'000;
 #else
 	int insert_num = 3'500'000;
 	int find_num = 1'500'000;
 	int erase_num = 750'000;
 #endif
 
+	test("512 int range used",   512, insert_num, find_num, erase_num);
 	test(" 4k int range used",  4086, insert_num, find_num, erase_num);
 	test(" 8k int range used",  8192, insert_num, find_num, erase_num);
 	test("16k int range used", 16384, insert_num, find_num, erase_num);

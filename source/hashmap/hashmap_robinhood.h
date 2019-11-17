@@ -25,6 +25,9 @@ template< class K, class V > class hashmap_robinhood
 	const static int UNUSED = -1;
 
 public:
+	typedef K key_type;
+	typedef V value_type;
+
 	struct item
 	{
 		K	first;
@@ -32,15 +35,12 @@ public:
 		int	distance;
 	};
 
-	hashmap_robinhood(int capacity_log = 3)
+	hashmap_robinhood(int capacity = 16)
 	{
-		m_size = 0;
-		m_capacity_log = capacity_log;
-		m_capacity = 1 << capacity_log;
-		m_items = new item[m_capacity];
-		for (int i = 0; i < m_capacity; ++i)
-			m_items[i].distance = UNUSED;
+		m_capacity = m_size = 0;
+		m_items = nullptr;
 		m_allow_resize = true;
+		resize(capacity);
 	}
 	~hashmap_robinhood()
 	{
@@ -89,6 +89,9 @@ public:
 
 	iterator begin()
 	{
+		if (m_items[0].distance != UNUSED)
+			return iterator(this, 0);
+
 		iterator it(this, 0);
 		++it;
 		return it;
@@ -135,7 +138,7 @@ public:
 			{
 				if (should_grow())
 				{
-					resize(m_capacity_log + 1);
+					resize(m_capacity * 2);
 					m_allow_resize = false;
 					iterator it = find_or_insert(elem.first);
 					m_allow_resize = true;
@@ -173,7 +176,7 @@ public:
 		if (should_shrink())
 		{
 			const K key = it->first;
-			resize(m_capacity_log - 1);
+			resize(m_capacity / 2);
 
 			auto it = find(key);
 			m_allow_resize = false;
@@ -262,9 +265,12 @@ public:
 		return m_items[index];
 	}
 
-	void resize(int new_capacity_log)
+	void resize(int new_capacity)
 	{
-		int new_capacity = 1U << new_capacity_log;
+		int log = 0;
+		for (int cap = 1; cap < new_capacity; ++log, cap *= 2);
+		new_capacity = 1U << log;
+
 		if (new_capacity < size())
 		{
 			return;
@@ -274,7 +280,6 @@ public:
 		int   prev_capacity = m_capacity;
 
 		m_capacity = new_capacity;
-		m_capacity_log = new_capacity_log;
 		m_items = new item[new_capacity];
 		for (int i = 0; i < new_capacity; m_items[i++].distance = UNUSED);
 
@@ -295,7 +300,7 @@ public:
 
 private:
 	item* m_items;
-	int		m_size, m_capacity, m_capacity_log;
+	int		m_size, m_capacity;
 	bool	m_allow_resize;
 
 	bool should_grow() const
