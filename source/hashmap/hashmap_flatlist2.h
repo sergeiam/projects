@@ -1,14 +1,14 @@
 
 // Hash table implementing list-based collision resolving, list allocated inside a continuouis vector, Sergey Miloykov (sergei.m()gmail.com)
 // TODO:
-//		- implement list separate growing, so we can allocate sparse hash space to have rare collision events and/or have very low 'should_grow' coefficient (75% right now)
+//		- try hybrid approach, where the first element actually reside in the hash array itself, so we can hit the element direcly in a sparse table
 
 #pragma once
 #include <xhash>
 
 
 
-template< class K, class V > class hashmap_flatlist
+template< class K, class V > class hashmap_flatlist2
 {
 	friend class iterator;
 
@@ -29,41 +29,37 @@ public:
 		int	next;
 	};
 
-	hashmap_flatlist(int capacity = 16)
+	hashmap_flatlist2(int capacity = 16)
 	{
 		m_hash = nullptr;
-		m_items = nullptr;
 		m_capacity = m_size = 0;
 		m_allow_resize = true;
 		resize(capacity);
 	}
-	hashmap_flatlist(hashmap_flatlist&& rhs)
+	hashmap_flatlist2(hashmap_flatlist2&& rhs)
 	{
 		m_hash = rhs.m_hash;
-		m_items = rhs.m_items;
 		m_free_list = rhs.m_free_list;
 		m_size = rhs.m_size;
 		m_capacity = rhs.m_capacity;
 		rhs.m_hash = nullptr;
-		rhs.m_items = nullptr;
 		rhs.m_size = rhs.m_capacity = 0;
 		rhs.m_free_list = -1;
 	}
-	~hashmap_flatlist()
+	~hashmap_flatlist2()
 	{
 		delete[] m_hash;
-		delete[] m_items;
 	}
 
 	class iterator
 	{
-		friend class hashmap_flatlist;
+		friend class hashmap_flatlist2;
 
-		hashmap_flatlist* map;
+		hashmap_flatlist2* map;
 		int hash_index, list_index;
 
 	public:
-		iterator(hashmap_flatlist* _map, int hi, int li) : map(_map), hash_index(hi), list_index(li) {}
+		iterator(hashmap_flatlist2* _map, int hi, int li) : map(_map), hash_index(hi), list_index(li) {}
 
 		void operator++()
 		{
@@ -71,25 +67,26 @@ public:
 
 			if (list_index >= 0)
 			{
-				list_index = map->m_items[list_index].next;
+				list_index = map->m_hash[list_index].next;
 			}
-				
-			if(list_index == -1)
+
+			if (list_index == -1)
 			{
 				if (hash_index == n) return;
 
-				int* ph = map->m_hash;
+				const item* ph = map->m_hash;
 				do
 				{
 					hash_index++;
 				}
-				while (hash_index < n && ph[hash_index] == -1);
-				list_index = (hash_index < n) ? ph[hash_index] : -1;
+				while (hash_index < n && ph[hash_index].next == -2);
+
+				list_index = (hash_index < n) ? hash_index : -1;
 			}
 		}
 		item* operator->()
 		{
-			return &map->m_items[list_index];
+			return &map->m_hash[list_index];
 		}
 		bool operator == (iterator rhs) const
 		{
@@ -111,11 +108,9 @@ public:
 	{
 		if (!m_capacity) return end();
 
-		if (m_hash[0] != -1)
-			return iterator(this, 0, m_hash[0]);
-
-		iterator it(this, 0, -1);
-		++it;
+		iterator it(this, 0, 0);
+		if (m_hash[0].next == -2)
+			++it;
 		return it;
 	}
 	iterator end()
@@ -127,9 +122,14 @@ public:
 	{
 		int h = CLAMP_HASH_RANGE(stdext::hash_value(key));
 
-		for (int li = m_hash[h]; li != -1; li = m_items[li].next)
+		if (m_hash[h].next == -2)
 		{
-			if (m_items[li].first == key)
+			return end();
+		}
+
+		for (int li = h; li != -1; li = m_hash[li].next)
+		{
+			if (m_hash[li].first == key)
 			{
 				return iterator(this, h, li);
 			}
@@ -141,9 +141,7 @@ public:
 	{
 		int h = CLAMP_HASH_RANGE(stdext::hash_value(key));
 
-		int li = m_hash[h];
-
-		if (li == -1)
+		if (m_hash[h].next == -2)
 		{
 			if (should_grow())
 			{
@@ -151,24 +149,20 @@ public:
 				return find_or_insert(key);
 			}
 
-			li = m_free_list;
-			m_hash[h] = li;
-			m_free_list = m_items[m_free_list].next;
-
-			m_items[li].first = key;
-			m_items[li].next = -1;
+			m_hash[h].first = key;
+			m_hash[h].next = -1;
 			m_size++;
 
-			return iterator(this, h, li);
+			return iterator(this, h, h);
 		}
 
-		for(;;)
+		for (int li = h; ; li = m_hash[li].next)
 		{
-			if (m_items[li].first == key)
+			if (m_hash[li].first == key)
 			{
 				return iterator(this, h, li);
 			}
-			if (m_items[li].next == -1)
+			if (m_hash[li].next == -1)
 			{
 				if (should_grow())
 				{
@@ -177,17 +171,16 @@ public:
 				}
 
 				int next = m_free_list;
-				m_free_list = m_items[m_free_list].next;
-				m_items[li].next = next;
+				m_free_list = m_hash[m_free_list].next;
+				m_hash[li].next = next;
 
-				m_items[next].first = key;
-				m_items[next].next = -1;
+				m_hash[next].first = key;
+				m_hash[next].next = -1;
 
 				m_size++;
 
 				return iterator(this, h, next);
 			}
-			li = m_items[li].next;
 		}
 	}
 
@@ -195,44 +188,52 @@ public:
 	{
 		const bool return_next_iterator = false;
 
-		int li = m_hash[it.hash_index];
-		if (li == it.list_index)
+		m_size--;
+
+		if (it.hash_index == it.list_index)
 		{
-			int next = m_items[li].next;
+			if (m_hash[it.hash_index].next == -1)
+			{
+				m_hash[it.hash_index].next = -2;
 
-			m_items[li].first.~K();
-			m_items[li].second.~V();
+				if (return_next_iterator)
+				{
+					++it;
+					return it;
+				}
+				return end();
+			}
 
-			m_hash[it.hash_index] = next;
 
-			m_items[li].next = m_free_list;
-			m_free_list = li;
+			int next = m_hash[it.hash_index].next;
 
-			m_size--;
+			m_hash[it.hash_index].first = m_hash[next].first;
+			m_hash[it.hash_index].second = m_hash[next].second;
+			m_hash[it.hash_index].next = m_hash[next].next;
 
-			if (!return_next_iterator) return end();
+			m_hash[next].next = m_free_list;
+			m_free_list = next;
 
-			it.list_index = next;
-			return it;
+			return return_next_iterator ? it : end();
 		}
 
-		for (int i = li;; i = m_items[li].next)
+		for (int i = it.hash_index; ; i = m_hash[i].next)
 		{
-			int next = m_items[i].next;
-			if (next == li)
+			if (m_hash[i].next == it.list_index)
 			{
-				m_items[i].next = m_items[li].next;
-				m_items[li].first.~K();
-				m_items[li].second.~V();
-				m_items[li].next = m_free_list;
-				m_free_list = li;
+				int next = m_hash[it.list_index].next;
 
-				m_size--;
+				m_hash[i].next = next;
+				m_hash[it.list_index].next = m_free_list;
+				m_free_list = it.list_index;
 
-				if (!return_next_iterator) return end();
-
-				++it;
-				return it;
+				if (return_next_iterator)
+				{
+					it.list_index = i;
+					++it;
+					return it;
+				}
+				return end();
 			}
 		}
 	}
@@ -245,10 +246,8 @@ public:
 
 	void clear()
 	{
-		delete[] m_items;
 		delete[] m_hash;
 		m_size = m_capacity = 0;
-		m_items = nullptr;
 		m_hash = nullptr;
 
 		resize(16);
@@ -273,19 +272,17 @@ public:
 			return;
 		}
 
-		hashmap_flatlist<K, V> temp(std::move(*this));
+		hashmap_flatlist2<K, V> temp(std::move(*this));
 
 		m_capacity = new_capacity;
-		m_hash = new int[new_capacity];
-		m_items = new item[new_capacity];
+		m_hash = new item[new_capacity*2];
 
-		for (int i = 0; i < new_capacity; ++i)
+		for (int i = 0; i < new_capacity*2; ++i)
 		{
-			m_items[i].next = i+1;
-			m_hash[i] = -1;
+			m_hash[i].next = i < new_capacity ? -2 : i + 1 - new_capacity;
 		}
-		m_items[new_capacity - 1].next = -1;
-		m_free_list = 0;
+		m_hash[new_capacity*2 - 1].next = -1;
+		m_free_list = new_capacity;
 		m_size = 0;
 
 		for (auto it = temp.begin(); it != temp.end(); ++it)
@@ -295,8 +292,7 @@ public:
 	}
 
 private:
-	int*	m_hash;
-	item*	m_items;
+	item*	m_hash;
 	int		m_size, m_capacity, m_free_list;
 	bool	m_allow_resize;
 
