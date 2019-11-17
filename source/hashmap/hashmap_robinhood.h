@@ -1,6 +1,16 @@
-#pragma once
 
+// Hash table implementing Robin-Hood collision scheme, Sergey Miloykov (sergei.m()gmail.com)
+// TODO:
+//		- split keys and values for the case where size of the value type is big, so we can traverse and search the table faster
+//		- set the 'return next iterator after erase' as a mode for the table, so it can work both ways
+//		- test non-power-of-2 table size
+//		- constant iterators
+
+
+#pragma once
 #include <xhash>
+
+
 
 template< class K, class V > class hashmap_robinhood
 {
@@ -30,30 +40,37 @@ public:
 		m_items = new item[m_capacity];
 		for (int i = 0; i < m_capacity; ++i)
 			m_items[i].distance = UNUSED;
+		m_allow_resize = true;
 	}
 	~hashmap_robinhood()
 	{
 		delete[] m_items;
 	}
 
-	struct iterator
+	class iterator
 	{
-		hashmap_robinhood& map;
+		friend class hashmap_robinhood;
+
+		hashmap_robinhood* map;
 		int index;
 
-		iterator(hashmap_robinhood& rh, int i) : map(rh), index(i) {}
-		//iterator(iterator&& rhs) : map(rhs.map), index(rhs.index) {}
+	public:
+		iterator(hashmap_robinhood* rh, int i) : map(rh), index(i) {}
 
 		void operator++()
 		{
-			const int n = map.m_capacity;
+			const int n = map->m_capacity;
+			const item* ptr = map->m_items + index;
+			int i = index;
 			do {
-				index++;
-			} while (index < n && map(index).distance == hashmap_robinhood::UNUSED);
+				i++;
+				ptr++;
+			} while (i < n && ptr->distance == hashmap_robinhood::UNUSED);
+			index = i;
 		}
 		item* operator->()
 		{
-			return &map(index);
+			return &(*map)(index);
 		}
 		bool operator == (iterator rhs) const
 		{
@@ -63,17 +80,22 @@ public:
 		{
 			return index != rhs.index;
 		}
+		void operator = (iterator& rhs)
+		{
+			map = rhs.map;
+			index = rhs.index;
+		}
 	};
 
 	iterator begin()
 	{
-		iterator it(*this, 0);
+		iterator it(this, 0);
 		++it;
 		return it;
 	}
 	iterator end()
 	{
-		return iterator(*this, m_capacity);
+		return iterator(this, m_capacity);
 	}
 
 	iterator find(const K& key)
@@ -87,7 +109,7 @@ public:
 		{
 			if (ptr->distance < d) break;
 
-			if (ptr->first == key) return iterator(*this,ptr - m_items);
+			if (ptr->first == key) return iterator(this, int(ptr - m_items));
 
 			if (++ptr == ptr_end) ptr = m_items;
 		}
@@ -114,21 +136,21 @@ public:
 				if (should_grow())
 				{
 					resize(m_capacity_log + 1);
-					iterator i = find_or_insert(elem.first);
-					i->second = elem.second;
-					m_size++;
-
-					return find(key);
+					m_allow_resize = false;
+					iterator it = find_or_insert(elem.first);
+					m_allow_resize = true;
+					it->second = elem.second;
+					return it;
 				}
 
 				*ptr = elem;
 				m_size++;
 
-				return iterator(*this, index == -1 ? ptr - m_items : index);
+				return iterator(this, index == -1 ? int(ptr - m_items) : index);
 			}
 			if (ptr->first == key)
 			{
-				return iterator(*this, ptr - m_items);
+				return iterator(this, int(ptr - m_items));
 			}
 			if (ptr->distance < elem.distance)
 			{
@@ -136,12 +158,72 @@ public:
 				*ptr = elem;
 				elem = next;
 				if (index == -1)
-					index = ptr - m_items;
+					index = int(ptr - m_items);
 			}
 			elem.distance++;
 			if (++ptr == ptr_end) ptr = m_items;
 		}
-		return iterator(*this, index);
+		return iterator(this, index);
+	}
+
+	iterator erase(iterator it)
+	{
+		bool return_next_iterator = false;
+
+		if (should_shrink())
+		{
+			const K key = it->first;
+			resize(m_capacity_log - 1);
+
+			auto it = find(key);
+			m_allow_resize = false;
+			it = erase(it);
+			m_allow_resize = true;
+
+			return it;
+		}
+
+		item* ptr = m_items + it.index;
+		item* ptr_last = ptr;
+		const item* ptr_end = m_items + m_capacity;
+
+		m_size--;
+
+		ptr->first.~K();
+		ptr->second.~V();
+		ptr->distance = UNUSED;
+
+		bool passed_end = false;
+
+		for (int distance = 1;; ++distance)
+		{
+			if (++ptr == ptr_end)
+			{
+				ptr = m_items;
+				passed_end = true;
+			}
+
+			if (distance > ptr->distance) break;
+
+			ptr_last->first = std::move(ptr->first);
+			ptr_last->second = std::move(ptr->second);
+			ptr_last->distance = ptr->distance - distance;
+
+			ptr->distance = UNUSED;
+			ptr_last = ptr;
+			distance = 0;
+		}
+
+		if (!return_next_iterator)
+		{
+			return end();
+		}
+
+		if (passed_end) return end();
+
+		if( it->distance == UNUSED ) ++it;
+
+		return it;
 	}
 
 	V& operator[] (const K& key)
@@ -158,10 +240,12 @@ public:
 			{
 				if (m_items[i].distance != UNUSED)
 				{
-					m_items[i].second::~V();
+					m_items[i].first.~K();
+					m_items[i].second.~V();
 					m_items[i].distance = UNUSED;
 				}
 			}
+			m_size = 0;
 		}
 	}
 	size_t size() const
@@ -187,19 +271,23 @@ public:
 		}
 
 		item* prev_items = m_items;
-		int    prev_capacity = m_capacity;
+		int   prev_capacity = m_capacity;
 
 		m_capacity = new_capacity;
 		m_capacity_log = new_capacity_log;
 		m_items = new item[new_capacity];
+		for (int i = 0; i < new_capacity; m_items[i++].distance = UNUSED);
 
 		if (m_size)
 		{
 			m_size = 0;
 			for (int i = 0; i < prev_capacity; ++i)
 			{
-				auto it = find_or_insert(prev_items[i].first);
-				it->second = prev_items[i].second;
+				if (prev_items[i].distance != UNUSED)
+				{
+					auto it = find_or_insert(prev_items[i].first);
+					it->second = std::move(prev_items[i].second);
+				}
 			}
 		}
 		delete[] prev_items;
@@ -208,9 +296,14 @@ public:
 private:
 	item* m_items;
 	int		m_size, m_capacity, m_capacity_log;
+	bool	m_allow_resize;
 
 	bool should_grow() const
 	{
-		return m_size + 1 >= m_capacity * 3 / 4;
+		return m_allow_resize && m_size + 1 >= m_capacity * 3 / 4;
+	}
+	bool should_shrink() const
+	{
+		return m_allow_resize && m_size < m_capacity * 3 / 8;
 	}
 };

@@ -9,14 +9,19 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+
 #include "hashmap_robinhood.h"
 
-
+#ifndef _DEBUG
+	#define ASSERT(x)
+#else
+	#define ASSERT(x) do{if(!(x)) { int a=0; printf("%d", 1/a);}}while(0)
+#endif
 
 #define MAX_TESTS 16
 
-//#define VALUE_TYPE BigObject
-#define VALUE_TYPE int
+#define VALUE_TYPE BigObject
+//#define VALUE_TYPE int
 
 
 
@@ -70,7 +75,6 @@ template< class T > void test_find1(const char* name, int N, int Range, T& map, 
 {
 	g_test_names[test_index] = name;
 
-	srand(12345);
 	int found = 0;
 
 	TimeScope ts(g_times[container_index][test_index]);
@@ -86,11 +90,33 @@ template< class T > void test_find1(const char* name, int N, int Range, T& map, 
 	g_side_effect += found;
 }
 
-template< class T, class V > void test_container(const char* name, int Range, int insert_num, int find_num, int container_index, T& map)
+// inserts N elements into map, then starts to insert/erase K elements
+
+template< class T, class V > void test_erase(const char* name, int n, int k, int container_index, int test_index)
+{
+	g_test_names[test_index] = name;
+
+	TimeScope ts(g_times[container_index][test_index]);
+
+	T map;
+	for (int i = 0; i < n; ++i)
+	{
+		map[i] = V();
+	}
+	for (int i = 0; i < k; ++i)
+	{
+		int j = rand_range(n);
+		map[j] = V();
+		auto it = map.find(j);
+		map.erase(it);
+	}
+}
+
+template< class T, class V > void test_container(const char* name, int Range, int insert_num, int find_num, int erase_num, int container_index, T& map)
 {
 	g_container_names[container_index] = name;
 
-	srand(12345);
+	srand(78432234);
 
 	std::vector<std::pair<int, V>> input;
 
@@ -106,9 +132,13 @@ template< class T, class V > void test_container(const char* name, int Range, in
 	test_find1<T>(		"find_range       ", find_num, Range, map, container_index, g_tests++);
 	test_find1<T>(		"find_range x10   ", find_num, Range * 10, map, container_index, g_tests++);
 	test_find1<T>(		"find_range x100  ", find_num, Range * 100, map, container_index, g_tests++);
+	test_erase<T, V>(   "erase            ", Range, erase_num, container_index, g_tests++);
 
 	T empty_map;
 	test_find1<T>(		"search_empty_map ", find_num, Range, empty_map, container_index, g_tests++);
+
+	empty_map[12345] = V();
+	test_find1<T>(      "search_1_el_map  ", find_num, Range, empty_map, container_index, g_tests++);
 }
 
 void print_statistics(const char* test_name)
@@ -122,31 +152,41 @@ void print_statistics(const char* test_name)
 	for (int i = 0; i < g_tests; ++i)
 	{
 		printf("%s", g_test_names[i].c_str());
-		for (int j = 0; j < g_containers; ++j)
-			printf("%4dms\t", g_times[j][i]);
+		printf("%4dms\t", g_times[0][i]);
+		for (int j = 1; j < g_containers; ++j)
+			printf("%4dms (%d%%)\t", g_times[j][i], g_times[j][i]*100 / g_times[0][i] );
 		printf("\n");
 	}
-	printf("=================================================\n");
 }
 
-void test(const char* test_name, int Range, int insert_num, int find_num)
+void test(const char* test_name, int Range, int insert_num, int find_num, int erase_num)
 {
 	g_containers = 0;
 
 	std::unordered_map<int, VALUE_TYPE> stl_map;
-	test_container<std::unordered_map<int, VALUE_TYPE>, VALUE_TYPE>(	"STL ", Range, insert_num, find_num, g_containers++, stl_map);
+	test_container<std::unordered_map<int, VALUE_TYPE>, VALUE_TYPE>(	"STL ", Range, insert_num, find_num, erase_num, g_containers++, stl_map);
 
 	hashmap_robinhood<int, VALUE_TYPE> rh_map(15);
-	test_container<hashmap_robinhood<int, VALUE_TYPE>, VALUE_TYPE>(		"R.H.", Range, insert_num, find_num, g_containers++, rh_map);
+	test_container<hashmap_robinhood<int, VALUE_TYPE>, VALUE_TYPE>(		"R.H.", Range, insert_num, find_num, erase_num, g_containers++, rh_map);
 
 	print_statistics(test_name);
 }
 
 int main()
 {
-	test("4k items" ,  4000, 3500000, 1500000);
-	test("8k items" ,  8000, 3500000, 1500000);
-	test("16k items", 16000, 3500000, 1500000);
+#ifdef _D43EBUG
+	int insert_num = 35'000;
+	int find_num = 15'000;
+#else
+	int insert_num = 3'500'000;
+	int find_num = 1'500'000;
+	int erase_num = 750'000;
+#endif
+
+	test(" 4k int range used",  4086, insert_num, find_num, erase_num);
+	test(" 8k int range used",  8192, insert_num, find_num, erase_num);
+	test("16k int range used", 16384, insert_num, find_num, erase_num);
+	test("64k int range used", 65536, insert_num, find_num, erase_num);
 
 	printf("Side effect = %d\n", g_side_effect);
 

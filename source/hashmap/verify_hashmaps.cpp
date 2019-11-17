@@ -32,6 +32,30 @@ template< class T > void verify_hashmap()
 
 	TEST(count == 4 && found[5] && found[10] && found[11] && found[21]);
 
+	// --- erase
+
+	//auto it = map.erase(map.begin());
+	//TEST(map.size() == 3 && it != map.end() && it == map.begin());
+
+	while (!map.empty()) map.erase(map.begin());
+	TEST(map.empty());
+
+	// -- clear
+
+	map[5] = true;
+	TEST(map.size() == 1);
+
+	map.clear();
+	TEST(map.empty());
+	TEST(map.size() == 0);
+
+	// --- grow
+	for (int i = 0; i < 1000; ++i)
+	{
+		map[i] = true;
+	}
+	TEST(map.size() == 1000);
+
 #undef TEST
 }
 
