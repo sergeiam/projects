@@ -3,6 +3,7 @@
   <ItemGroup>
     <ClInclude Include="hashmap_robinhood.h" />
     <ClInclude Include="hashmap_flatlist.h" />
+    <ClInclude Include="hashmap_flatlist2.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />

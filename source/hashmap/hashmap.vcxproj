@@ -153,6 +153,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="hashmap_flatlist.h" />
+    <ClInclude Include="hashmap_flatlist2.h" />
     <ClInclude Include="hashmap_robinhood.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

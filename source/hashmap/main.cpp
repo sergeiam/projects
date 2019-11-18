@@ -12,6 +12,7 @@
 
 #include "hashmap_robinhood.h"
 #include "hashmap_flatlist.h"
+#include "hashmap_flatlist2.h"
 
 #ifndef _DEBUG
 	#define ASSERT(x)
@@ -172,6 +173,9 @@ void test(const char* test_name, int Range, int insert_num, int find_num, int er
 
 	hashmap_flatlist<int, VALUE_TYPE> fl_map(16);
 	test_container<hashmap_flatlist<int, VALUE_TYPE>, VALUE_TYPE>("FlatList", Range, insert_num, find_num, erase_num, g_containers++, fl_map);
+
+	hashmap_flatlist2<int, VALUE_TYPE> fl_map2(16);
+	test_container<hashmap_flatlist2<int, VALUE_TYPE>, VALUE_TYPE>("FlatList2", Range, insert_num, find_num, erase_num, g_containers++, fl_map2);
 
 	print_statistics(test_name);
 }

@@ -106,12 +106,16 @@ public:
 
 	iterator begin()
 	{
-		if (!m_capacity) return end();
+		if (!m_capacity)
+			return end();
 
-		iterator it(this, 0, 0);
 		if (m_hash[0].next == -2)
+		{
+			iterator it(this, 0, -1);
 			++it;
-		return it;
+			return it;
+		}
+		return iterator(this, 0, 0);
 	}
 	iterator end()
 	{
@@ -279,7 +283,7 @@ public:
 
 		for (int i = 0; i < new_capacity*2; ++i)
 		{
-			m_hash[i].next = i < new_capacity ? -2 : i + 1 - new_capacity;
+			m_hash[i].next = i < new_capacity ? -2 : i + 1;
 		}
 		m_hash[new_capacity*2 - 1].next = -1;
 		m_free_list = new_capacity;

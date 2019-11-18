@@ -1,5 +1,6 @@
 #include "hashmap_robinhood.h"
 #include "hashmap_flatlist.h"
+#include "hashmap_flatlist2.h"
 
 
 #define TEST(x) do{if(!(x)) { int d = 0; printf("%d", 1/d );}} while(0)
@@ -24,6 +25,11 @@ template< class T > void verify_hashmap()
 	TEST(map.find(11) != map.end());
 	TEST(map.find(21) != map.end());
 	TEST(map.find(12) == map.end());
+
+	auto it = map.begin();
+	++it;
+
+	TEST(it != map.begin());
 
 	bool found[22] = { false };
 
@@ -81,8 +87,9 @@ struct Verify
 {
 	Verify()
 	{
-		verify_hashmap<hashmap_robinhood<int, bool>>();
-		verify_hashmap<hashmap_flatlist<int, bool>>();
+		//verify_hashmap<hashmap_robinhood<int, bool>>();
+		//verify_hashmap<hashmap_flatlist<int, bool>>();
+		verify_hashmap<hashmap_flatlist2<int, bool>>();
 	}
 };
 
