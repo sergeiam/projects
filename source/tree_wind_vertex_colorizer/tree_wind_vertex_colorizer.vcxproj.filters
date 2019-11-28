@@ -35,5 +35,8 @@
     <ClInclude Include="..\xr\core.h">
       <Filter>source\xr\core</Filter>
     </ClInclude>
+    <ClInclude Include="tree_vertex_colorizer.h">
+      <Filter>source</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
