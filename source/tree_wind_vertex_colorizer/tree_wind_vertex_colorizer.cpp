@@ -49,6 +49,11 @@ struct XrMeshAdapter : public MeshAdapter
 		ensure_size(m_mesh.m_positions, v);
 		m_mesh.m_positions[v] = Vec3(pos.x, pos.y, pos.z);
 	}
+	void set_normal(int v, float3 value)
+	{
+		ensure_size(m_mesh.m_normals, v);
+		m_mesh.m_normals[v] = Vec3(value.x, value.y, value.z);
+	}
 	void set_triangle(int i, int v0, int v1, int v2)
 	{
 		ensure_size(m_mesh.m_faces, i);
@@ -63,22 +68,25 @@ struct XrMeshAdapter : public MeshAdapter
 int main()
 {
 	xr::MESH mesh;
-
-	mesh.read_obj("MapleTree.obj");
-
 	XrMeshAdapter xma(mesh);
-	VOLUME<int> voxels(32, 32, 32);
 
-	mesh_to_voxel(xma, voxels);
+	VOLUME<int> voxels(128, 128, 128);
 
-	int vox_count = 0;
-	for (int i = 0; i < voxels.xr * voxels.yr * voxels.zr; ++i)
-		if (voxels.buffer[i]) vox_count++;
+	if (mesh.read_obj("TreeTrunk.obj"))
+	{
+		clock_t t0 = clock();
+		mesh_to_voxel(xma, voxels);
+		printf("mesh_to_voxel: %d ms\n", (clock() - t0) * 1000 / CLOCKS_PER_SEC);
+	}
+	else
+	{
+		for (int i = 0; i < voxels.xr * voxels.yr * voxels.zr; ++i)
+			voxels.buffer[i] = (i % 17 == 0) ? 1 : 0;
+	}
 
 	mesh.clear();
 	voxel_to_mesh(voxels, xma, float3(1.0f, 1.0f, 1.0f), float3(0.0f, 0.0f, 0.0f));
-
-	mesh.write_obj("MapleTreeVoxel.obj");
+	mesh.write_obj("TreeTrunkVoxel.obj");
 
 	return 0;
 }

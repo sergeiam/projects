@@ -11,7 +11,13 @@
 
 struct float3
 {
-	float x, y, z;
+	union
+	{
+		float v[3];
+		struct {
+			float x, y, z;
+		};
+	};
 
 	float3() {}
 	float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
@@ -76,6 +82,7 @@ struct MeshAdapter
 	void	position(int v, float& x, float& y, float& z);
 
 	void	set_position(int v, float3 value);
+	void	set_normal(int v, float3 value);
 	void	set_color(int v, float r, float g, float b);
 	void	set_triangle(int i, int v0, int v1, int v2);
 };
@@ -95,31 +102,14 @@ template< class T > struct VOLUME
 	}
 };
 
-bool box_vs_triangle(const float3& box_min, const float3& box_max, const float3& v0, const float3& v1, const float3& v2, const float3& N, float voxel_size_sq)
+bool point_vs_triangle(const float3& point, const float3& v0, const float3& v1, const float3& v2, const float3& N, float radius)
 {
 	const float Nd = -N.dot(v0);
+	const float d = N.dot(point) + Nd;
 
-	float3 a(box_min);
-	float3 b(box_max);
+	if (d < -radius || d > radius) return false;
 
-	if (N.x < 0.0f) std::swap(a.x, b.x);
-	if (N.y < 0.0f) std::swap(a.y, b.y);
-	if (N.z < 0.0f) std::swap(a.z, b.z);
-
-	const float ad = N.dot(a) + Nd;
-	const float bd = N.dot(b) + Nd;
-
-	if (ad > 0.0f || bd < 0.0f) return false;
-
-
-	if ((v0 - v1).length_sq() < voxel_size_sq || (v0 - v2).length_sq() < voxel_size_sq || (v1 - v2).length_sq() < voxel_size_sq)
-	{
-		return v0.inside(box_min, box_max) || v1.inside(box_min, box_max) || v2.inside(box_min, box_max);
-	}
-
-	float d = (ad + bd)*0.5f;
-
-	float3 pt = (a + b)*0.5f + N*d;
+	float3 pt = point - N*d;
 
 	float3 e0 = v1 - v0;
 	float3 e1 = v2 - v0;
@@ -171,6 +161,11 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 	memset(voxels.buffer, 0, xr * yr * zr * sizeof(int));
 
 	float3 box_size = box_max - box_min;
+
+	box_max = box_max + box_size * 0.05f;
+	box_size = box_max - box_min;
+
+
 	float3 inv_box_size(1.0f / box_size.x, 1.0f / box_size.y, 1.0f / box_size.z);
 
 	float3* npos = new float3[count];
@@ -183,6 +178,10 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 
 	auto rasterize_voxels = [&ma, npos, xr, yr, zr, &voxels](int first, int last) -> void
 	{
+		const float3 inv_res(1.0f / voxels.xr, 1.0f / voxels.yr, 1.0f / voxels.zr);
+
+		const float radius = std::max(inv_res.x, std::max(inv_res.y, inv_res.z)) * 0.8f;
+
 		for (int i = first; i < last; ++i)
 		{
 			int v[3];
@@ -200,27 +199,19 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 			p1.add_to_box(t_min, t_max);
 			p2.add_to_box(t_min, t_max);
 
-			const float inv_xr = 1.0f / xr;
-			const float inv_yr = 1.0f / xr;
-			const float inv_zr = 1.0f / xr;
+			voxels(int(p0.x * xr), int(p0.y * yr), int(p0.z * zr)) = 1;
+			voxels(int(p1.x * xr), int(p1.y * yr), int(p1.z * zr)) = 1;
+			voxels(int(p2.x * xr), int(p2.y * yr), int(p2.z * zr)) = 1;
 
-			float min_edge_sq = std::min(inv_xr, std::min(inv_yr, inv_zr));
-			min_edge_sq *= min_edge_sq;
-
-			float3 box_min;
-
-			box_min.z = int(t_min.z * zr) * inv_zr;
-			for (int z = int(t_min.z * zr), max_z = int(t_max.z * zr); z <= max_z; ++z, box_min.z += inv_zr) {
-				box_min.y = int(t_min.y * yr);
-				for (int y = int(t_min.y * yr), max_y = int(t_max.y * yr); y <= max_y; ++y, box_min.y += inv_yr) {
-					box_min.x = int(t_min.x * xr) * inv_xr;
-					for (int x = int(t_min.x * xr), max_x = int(t_max.x * xr); x <= max_x; ++x, box_min.x += inv_xr)
+			for (int z = int(t_min.z * zr), max_z = int(t_max.z * zr); z <= max_z; ++z) {
+				for (int y = int(t_min.y * yr), max_y = int(t_max.y * yr); y <= max_y; ++y) {
+					for (int x = int(t_min.x * xr), max_x = int(t_max.x * xr); x <= max_x; ++x)
 					{
 						if (voxels(x, y, z)) continue;
 
-						float3 box_max = box_min + float3(inv_xr, inv_yr, inv_zr);
+						float3 pt = float3(x, y, z) * inv_res;
 
-						if (box_vs_triangle(box_min, box_max, p0, p1, p2, N, min_edge_sq))
+						if (point_vs_triangle(pt, p0, p1, p2, N, radius))
 						{
 							voxels(x, y, z) = 1;
 						}
@@ -230,12 +221,11 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 		}
 	};
 
-	std::vector<std::thread> jobs;
-
-	int num_cores = std::min(2U, std::thread::hardware_concurrency());
+	int num_cores = std::max(2U, std::thread::hardware_concurrency() * 1);
 	int num_triangles = ma.num_triangles();
 	int partition = num_triangles / num_cores + 1;
 
+	std::vector<std::thread> jobs;
 	for (int i = 0; i < num_triangles; i += partition)
 	{
 		jobs.emplace_back( rasterize_voxels, i, std::min(i + partition, num_triangles));
@@ -248,61 +238,51 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 
 template< class TMeshAdapter > void voxel_to_mesh(VOLUME<int>& voxels, TMeshAdapter& ma, float3 scale, float3 pivot)
 {
-	const int xr = voxels.xr, yr = voxels.yr, zr = voxels.zr;
+	float3 diagonal(1.0f / voxels.xr, 1.0f / voxels.yr, 1.0f / voxels.zr);
 
-	VOLUME<int> verts(xr + 1, yr + 1, zr + 1);
-	memset(verts.buffer, -1, (xr + 1) * (yr + 1) * (zr + 1) * sizeof(int));
-
-	int vi = 0;
-	for (int x = 0; x < xr; ++x)
+	int vi = 0, fi = 0;
+	for (int x = 0; x < voxels.xr; ++x)
 	{
-		for (int y = 0; y < yr; ++y)
+		for (int y = 0; y < voxels.yr; ++y)
 		{
-			for (int z = 0; z < zr; ++z)
+			for (int z = 0; z < voxels.zr; ++z)
 			{
-				if (voxels(x,y,z))
+				if (!voxels(x, y, z)) continue;
+
+				for (int d = 0; d<2; ++d)
 				{
-					for (int v = 0; v < 8; ++v)
+					float direction = d ? 1.0f : -1.0f;
+
+					int xc = x + d, yc = y + d, zc = z + d;
+
+					for (int axis = 0; axis < 3; ++axis)
 					{
-						int xv = (v & 1) ? x : x + 1;
-						int yv = (v & 2) ? y : y + 1;
-						int zv = (v & 4) ? z : z + 1;
+						float3 pos = float3(xc, yc, zc) * diagonal;
 
-					if (verts(xv, yv, zv) >= 0) continue;
+						float3 axis1(0.0f, 0.0f, 0.0f), axis2(0.0f, 0.0f, 0.0f);
 
-						ma.set_position(vi, float3(xv, yv, zv) * scale - pivot);
-						verts(xv, yv, zv) = vi++;
+						int ax1 = (axis + 1) % 3;
+						int ax2 = (axis + 2) % 3;
+
+						axis1.v[ax1] = -diagonal.v[ax1] * direction;
+						axis2.v[ax2] = -diagonal.v[ax2] * direction;
+
+						float3 n(0.0f, 0.0f, 0.0f);
+						n.v[axis] = direction;
+
+						ma.set_position(vi, pos * scale + pivot);
+						ma.set_normal(vi++, n);
+						ma.set_position(vi, (pos + axis1) * scale + pivot);
+						ma.set_normal(vi++, n);
+						ma.set_position(vi, (pos + axis1 + axis2) * scale + pivot);
+						ma.set_normal(vi++, n);
+						ma.set_position(vi, (pos + axis2) * scale + pivot);
+						ma.set_normal(vi++, n);
+
+						ma.set_triangle(fi++, vi - 4, vi - 3, vi - 2);
+						ma.set_triangle(fi++, vi - 4, vi - 2, vi - 1);
 					}
 				}
-
-			}
-		}
-	}
-
-	auto add_quad = [&ma](int& face_index, int v0, int v1, int v2, int v3) -> void
-	{
-		ma.set_triangle(face_index++, v0, v1, v2);
-		ma.set_triangle(face_index++, v0, v2, v3);
-	};
-
-	int fi = 0;
-	for (int x = 0; x < xr; ++x)
-	{
-		for (int y = 0; y < yr; ++y)
-		{
-			for (int z = 0; z < zr; ++z)
-			{
-				if (x && voxels(x, y, z) != voxels(x - 1, y, z))
-					add_quad(fi, verts(x, y, z), verts(x, y + 1, z), verts(x, y + 1, z + 1), verts(x, y, z + 1));
-
-				if (x + 1 < xr && voxels(x, y, z) != voxels(x + 1, y, z))
-					add_quad(fi, verts(x + 1, y, z), verts(x + 1, y + 1, z), verts(x + 1, y + 1, z + 1), verts(x + 1, y, z + 1));
-
-				if (y && voxels(x, y, z) != voxels(x, y - 1, z))
-					add_quad(fi, verts(x, y, z), verts(x + 1, y, z), verts(x + 1, y, z + 1), verts(x, y, z + 1));
-
-				if (y + 1 < yr && voxels(x, y, z) != voxels(x, y + 1, z))
-					add_quad(fi, verts(x, y + 1, z), verts(x + 1, y + 1, z), verts(x + 1, y + 1, z + 1), verts(x, y + 1, z + 1));
 			}
 		}
 	}
