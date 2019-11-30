@@ -287,3 +287,49 @@ template< class TMeshAdapter > void voxel_to_mesh(VOLUME<int>& voxels, TMeshAdap
 		}
 	}
 }
+
+template< class TMeshAdapter > void mesh_skeleton(TMeshAdapter& ma, TMeshAdapter& skeleton)
+{
+	float max_edge_sq = 0.0f, max_edge = 0.0f;
+
+	const int histo_size = 32;
+	int histo[histo_size];
+
+	for (int i = 0; i < histo_size; histo[i++] = 0);
+
+	for (int pass = 0; pass < 2; ++pass)
+	{
+		for (int i = 0; i < ma.num_triangles(); ++i)
+		{
+			int v[3];
+			ma.triangle(i, v[0], v[1], v[2]);
+
+			float3 pos[3];
+			for (int j = 0; j < 3; ++j)
+			{
+				ma.position(v[j], pos[j].x, pos[j].y, pos[j].z);
+			}
+			for (int j = 0; j < 3; ++j)
+			{
+				float edge = (pos[j] - pos[(j + 1) % 3]).length_sq();
+				if (pass == 0)
+				{
+					if (edge > max_edge_sq)
+						max_edge_sq = edge;
+				}
+				else
+				{
+					int index = sqrtf(edge) * histo_size / max_edge;
+					if (index == histo_size) index--;
+					histo[index]++;
+				}
+			}
+		}
+		max_edge = sqrtf(max_edge_sq);
+	}
+
+	for (int i = 0; i < histo_size; ++i)
+	{
+		printf("%d ", histo[i] * 100 / (ma.num_triangles() * 3));
+	}
+}

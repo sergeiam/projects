@@ -74,6 +74,11 @@ int main()
 
 	if (mesh.read_obj("TreeTrunk.obj"))
 	{
+		xr::MESH skeleton;
+		XrMeshAdapter xma_skel(skeleton);
+		mesh_skeleton(xma, xma_skel);
+
+
 		clock_t t0 = clock();
 		mesh_to_voxel(xma, voxels);
 		printf("mesh_to_voxel: %d ms\n", (clock() - t0) * 1000 / CLOCKS_PER_SEC);
