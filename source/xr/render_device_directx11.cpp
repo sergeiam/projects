@@ -2,8 +2,12 @@
 #include <xr/window.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
+#include <d3d11shader.h>
 
 #define SAFE_RELEASE(ptr) if(ptr) ptr->Release()
+
+//D3D11_SHADER_TYPE_DESC
+//D3D11_SHADER_BUFFER_DESC
 
 namespace xr
 {
@@ -15,8 +19,6 @@ namespace xr
 
 	struct RENDER_DEVICE_DX11 : public RENDER_DEVICE
 	{
-// --- TEXTURE implementation
-
 		struct TEXTURE_DX11 : public TEXTURE
 		{
 			TEXTURE_DX11(const TEXTURE_PARAMS& params)
@@ -37,7 +39,7 @@ namespace xr
 				HRESULT hr = S_OK;
 
 				if (m_params.flags & TF_BACKBUFFER) {
-					hr = s_swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&texture_2d);
+					hr = s_swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)& texture_2d);
 					LOG_HR(hr);
 					if (hr != S_OK)
 						return false;
@@ -134,15 +136,17 @@ namespace xr
 			}
 
 			union {
-				ID3D11Texture2D * texture_2d;
-				ID3D11Texture3D * texture_3d;
+				ID3D11Texture2D* texture_2d;
+				ID3D11Texture3D* texture_3d;
 			};
-			ID3D11ShaderResourceView*	shader_resource_view;
+			ID3D11ShaderResourceView* shader_resource_view;
 			union {
-				ID3D11RenderTargetView*	render_target_view;
-				ID3D11DepthStencilView*	depth_stencil_view;
+				ID3D11RenderTargetView* render_target_view;
+				ID3D11DepthStencilView* depth_stencil_view;
 			};
 		};
+
+		// --- TEXTURE implementation
 
 		virtual TEXTURE* create_texture(const TEXTURE_PARAMS& params)
 		{
@@ -157,14 +161,16 @@ namespace xr
 
 
 
-// --- BUFFER implementation
+		// --- BUFFER implementation
 
 		struct BUFFER_DX11 : public BUFFER
 		{
 			BUFFER_DX11(const BUFFER_PARAMS& params)
 				: m_buffer(nullptr)
 			{
-				m_params = params;
+				m_size = params.size;
+				m_flags = params.flags;
+				m_init_data = params.init_data;
 			}
 			virtual ~BUFFER_DX11()
 			{
@@ -173,27 +179,27 @@ namespace xr
 			bool allocate()
 			{
 				D3D11_BUFFER_DESC bd;
-				bd.ByteWidth = m_params.size;
+				bd.ByteWidth = size();
 				bd.BindFlags = 0;
-				if (m_params.flags & BF_VERTEX_BUFFER)
+				if (m_flags & BF_VERTEX_BUFFER)
 					bd.BindFlags |= D3D11_BIND_VERTEX_BUFFER;
-				if (m_params.flags & BF_INDEX_BUFFER)
+				if (m_flags & BF_INDEX_BUFFER)
 					bd.BindFlags |= D3D11_BIND_INDEX_BUFFER;
-				if (m_params.flags & BF_CONSTANT_BUFFER)
+				if (m_flags & BF_CONSTANT_BUFFER)
 					bd.BindFlags |= D3D11_BIND_CONSTANT_BUFFER;
-				if (m_params.flags & BF_SHADER_RESOURCE)
+				if (m_flags & BF_SHADER_RESOURCE)
 					bd.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
-				bd.CPUAccessFlags = (m_params.flags & BF_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
-				bd.Usage = (m_params.flags & BF_DYNAMIC) ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_DEFAULT;
+				bd.CPUAccessFlags = (m_flags & BF_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
+				bd.Usage = (m_flags & BF_DYNAMIC) ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_DEFAULT;
 				bd.StructureByteStride = 0;
 				bd.MiscFlags = 0;
 
 				D3D11_SUBRESOURCE_DATA srd;
-				srd.pSysMem = m_params.init_data;
+				srd.pSysMem = m_init_data;
 				srd.SysMemPitch = 0;
 				srd.SysMemSlicePitch = 0;
 
-				HRESULT hr = s_device->CreateBuffer(&bd, m_params.init_data ? &srd : NULL, &m_buffer);
+				HRESULT hr = s_device->CreateBuffer(&bd, m_init_data ? &srd : NULL, &m_buffer);
 				LOG_HR(hr);
 				return hr != S_OK;
 			}
@@ -227,7 +233,8 @@ namespace xr
 			{
 				if (m_buffer) s_device_context->Unmap(m_buffer, 0);
 			}
-			ID3D11Buffer* m_buffer;
+			ID3D11Buffer*	m_buffer;
+			const void*		m_init_data;
 		};
 
 		virtual BUFFER* create_buffer(const BUFFER_PARAMS& params)
@@ -241,18 +248,18 @@ namespace xr
 			return ptr;
 		}
 
-		virtual void set_buffers(const BUFFER** ptr, u32 count, u32 slot, const u32 * strides, const u32 * offsets, u32 flags)
+		virtual void set_buffers(const BUFFER** ptr, u32 count, u32 slot, const u32* strides, const u32* offsets, u32 flags)
 		{
 			if (!ptr) return;
 
 			ASSERT(count > 0 && count <= 8);
 
-			ID3D11Buffer * pb[8];
+			ID3D11Buffer* pb[8];
 			for (u32 i = 0; i < count; ++i) {
 				pb[i] = ((BUFFER_DX11*)ptr[i])->m_buffer;
 			}
 
-			switch ( ptr[0]->params().flags & (BF_VERTEX_BUFFER | BF_INDEX_BUFFER | BF_CONSTANT_BUFFER))
+			switch (ptr[0]->flags() & (BF_VERTEX_BUFFER | BF_INDEX_BUFFER | BF_CONSTANT_BUFFER))
 			{
 			case BF_VERTEX_BUFFER:
 				s_device_context->IASetVertexBuffers(slot, count, pb, (const UINT*)strides, (const UINT*)offsets);
@@ -260,7 +267,7 @@ namespace xr
 
 			case BF_INDEX_BUFFER:
 				ASSERT(count == 1);
-				s_device_context->IASetIndexBuffer(pb[0], (ptr[0]->params().flags & BF_INDICES_16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, offsets[0]);
+				s_device_context->IASetIndexBuffer(pb[0], (ptr[0]->flags() & BF_INDICES_16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, offsets[0]);
 				break;
 
 			case BF_CONSTANT_BUFFER:
@@ -279,7 +286,7 @@ namespace xr
 
 
 
-// --- RENDER STATE
+		// --- RENDER STATE
 
 		struct RENDER_STATE_DX11 : public RENDER_STATE
 		{
@@ -372,9 +379,9 @@ namespace xr
 				return true;
 			}
 
-			ID3D11DepthStencilState*	depth_stencil_state = nullptr;
-			ID3D11RasterizerState*		rasterizer_state = nullptr;
-			ID3D11BlendState*			blend_state = nullptr;
+			ID3D11DepthStencilState* depth_stencil_state = nullptr;
+			ID3D11RasterizerState* rasterizer_state = nullptr;
+			ID3D11BlendState* blend_state = nullptr;
 		};
 
 		virtual RENDER_STATE* create_render_state(const RENDER_STATE_PARAMS& params)
@@ -398,7 +405,7 @@ namespace xr
 
 
 
-// --- INPUT LAYOUT
+		// --- INPUT LAYOUT
 
 		struct INPUT_LAYOUT_DX11 : public INPUT_LAYOUT
 		{
@@ -437,7 +444,8 @@ namespace xr
 					return false;
 				return true;
 			}
-			ID3D11InputLayout*	input_layout;
+			ID3D11InputLayout* input_layout;
+			IL_PARAMS			m_params;
 		};
 		virtual INPUT_LAYOUT* create_input_layout(const IL_PARAMS& params)
 		{
@@ -457,22 +465,22 @@ namespace xr
 
 
 
-// --- SHADER
+		// --- SHADER
 
 		virtual SHADER_BYTECODE* compile_shader(const SHADER_SOURCE& source)
 		{
-			D3D_SHADER_MACRO * definitions = nullptr;
+			D3D_SHADER_MACRO* definitions = nullptr;
 			if (!source.macro_definitions) {
 				const int count = source.macro_definitions->size() / 2;
 				definitions = new D3D_SHADER_MACRO[count];
 				for (int i = 0; i < count; ++i) {
-					definitions[i].Name = (*source.macro_definitions)[i*2].c_str();
+					definitions[i].Name = (*source.macro_definitions)[i * 2].c_str();
 					definitions[i].Definition = (*source.macro_definitions)[i * 2 + 1].c_str();
 				}
 			}
 
 			UINT flags = 0;
-			ID3DBlob *compiled_blob, *errors_blob;
+			ID3DBlob* compiled_blob, * errors_blob;
 
 			HRESULT hr = D3DCompile(
 				source.source,
@@ -503,21 +511,21 @@ namespace xr
 			sb->flags = 0;
 			switch (source.profile.c_str()[0])
 			{
-				case 'V':
-				case 'v':
-					sb->flags |= SF_VERTEX_SHADER;
-					break;
-				case 'P':
-				case 'p':
-					sb->flags |= SF_PIXEL_SHADER;
-					break;
-				case 'C':
-				case 'c':
-					sb->flags |= SF_COMPUTE_SHADER;
-					break;
-				default:
-					ASSERT(0);
-					return nullptr;
+			case 'V':
+			case 'v':
+				sb->flags |= SF_VERTEX_SHADER;
+				break;
+			case 'P':
+			case 'p':
+				sb->flags |= SF_PIXEL_SHADER;
+				break;
+			case 'C':
+			case 'c':
+				sb->flags |= SF_COMPUTE_SHADER;
+				break;
+			default:
+				ASSERT(0);
+				return nullptr;
 			}
 
 			SAFE_RELEASE(compiled_blob);
@@ -529,9 +537,9 @@ namespace xr
 		{
 			u32 flags;
 			union {
-				ID3D11VertexShader*		vs;
-				ID3D11PixelShader*		ps;
-				ID3D11ComputeShader*	cs;
+				ID3D11VertexShader* vs;
+				ID3D11PixelShader* ps;
+				ID3D11ComputeShader* cs;
 			};
 
 			SHADER_DX11() : flags(0), vs(nullptr) {}
@@ -542,23 +550,26 @@ namespace xr
 			}
 		};
 
-		virtual SHADER* create_shader(const SHADER_BYTECODE& bytecode)
+		virtual SHADER* create_shader(const SHADER_BYTECODE& sb)
 		{
 			SHADER_DX11* ptr = new SHADER_DX11();
 
 			HRESULT hr = S_OK;
 
-			ptr->flags = bytecode.flags;
+			const void* pb = &sb.bytecode[0];
+			const u32 size = sb.bytecode.size();
+
+			ptr->flags = sb.flags;
 			switch (ptr->flags)
 			{
 			case SF_VERTEX_SHADER:
-				hr = s_device->CreateVertexShader(&bytecode.bytecode[0], bytecode.bytecode.size(), NULL, &ptr->vs);
+				hr = s_device->CreateVertexShader(pb, size, NULL, &ptr->vs);
 				break;
 			case SF_PIXEL_SHADER:
-				hr = s_device->CreatePixelShader(&bytecode.bytecode[0], bytecode.bytecode.size(), NULL, &ptr->ps);
+				hr = s_device->CreatePixelShader(pb, size, NULL, &ptr->ps);
 				break;
 			case SF_COMPUTE_SHADER:
-				hr = s_device->CreateComputeShader(&bytecode.bytecode[0], bytecode.bytecode.size(), NULL, &ptr->cs);
+				hr = s_device->CreateComputeShader(pb, size, NULL, &ptr->cs);
 				break;
 			}
 			LOG_HR(hr);
@@ -566,30 +577,44 @@ namespace xr
 				delete ptr;
 				return nullptr;
 			}
+
+			ID3D11ShaderReflection* pReflector = NULL;
+			D3DReflect(pb, size, IID_ID3D11ShaderReflection, (void**)& pReflector);
+
+			for (UINT i = 0;; ++i)
+			{
+				ID3D11ShaderReflectionConstantBuffer* srcb = pReflector->GetConstantBufferByIndex(i);
+				if (!srcb) break;
+
+				D3D11_SHADER_BUFFER_DESC desc;
+				srcb->GetDesc(&desc);
+			}
+
+
 			return ptr;
 		}
 
 		void set_shader(SHADER* shader)
 		{
 			SHADER_DX11* ptr = (SHADER_DX11*)shader;
-			switch (ptr->flags & (SF_VERTEX_SHADER|SF_PIXEL_SHADER|SF_COMPUTE_SHADER))
+			switch (ptr->flags & (SF_VERTEX_SHADER | SF_PIXEL_SHADER | SF_COMPUTE_SHADER))
 			{
-				case SF_VERTEX_SHADER:
-					s_device_context->VSSetShader(ptr->vs, nullptr, 0);
-					break;
-				case SF_PIXEL_SHADER:
-					s_device_context->PSSetShader(ptr->ps, nullptr, 0);
-					break;
-				case SF_COMPUTE_SHADER:
-					s_device_context->CSSetShader(ptr->cs, nullptr, 0);
-					break;
+			case SF_VERTEX_SHADER:
+				s_device_context->VSSetShader(ptr->vs, nullptr, 0);
+				break;
+			case SF_PIXEL_SHADER:
+				s_device_context->PSSetShader(ptr->ps, nullptr, 0);
+				break;
+			case SF_COMPUTE_SHADER:
+				s_device_context->CSSetShader(ptr->cs, nullptr, 0);
+				break;
 			}
 		}
 
-// --- render target setup
+		// --- render target setup
 
-		TEXTURE_DX11*	m_render_targets[16] = { nullptr };
-		TEXTURE_DX11*	m_depth_stencil = nullptr;
+		TEXTURE_DX11* m_render_targets[16] = { nullptr };
+		TEXTURE_DX11* m_depth_stencil = nullptr;
 		int				m_num_render_targets = 0;
 
 		virtual void reset_render_targets()
@@ -635,17 +660,17 @@ namespace xr
 		}
 		void setup_render_targets()
 		{
-			ID3D11RenderTargetView * pp_color_views[16];
+			ID3D11RenderTargetView* pp_color_views[16];
 			for (int i = 0; i < m_num_render_targets; ++i) {
 				pp_color_views[i] = m_render_targets[i]->render_target_view;
 			}
-			ID3D11DepthStencilView * dsv = m_depth_stencil ? m_depth_stencil->depth_stencil_view : NULL;
+			ID3D11DepthStencilView* dsv = m_depth_stencil ? m_depth_stencil->depth_stencil_view : NULL;
 			s_device_context->OMSetRenderTargets(UINT(m_num_render_targets), pp_color_views, dsv);
 		}
 
 
 
-// --- RENDER_DEVICE implementation
+		// --- RENDER_DEVICE implementation
 
 		virtual ~RENDER_DEVICE_DX11()
 		{
@@ -691,10 +716,6 @@ namespace xr
 				s_swap_chain->Present(1, 0);
 		}
 
-
-
-
-
 #define XR_TO_DX_FORMAT_MAPPING	\
 		ITEM(FMT_UNKNOWN,				DXGI_FORMAT_UNKNOWN) \
 		ITEM(FMT_R8G8B8A8,				DXGI_FORMAT_R8G8B8A8_UNORM)	\
@@ -720,7 +741,7 @@ namespace xr
 			}
 			return FMT_UNKNOWN;
 		}
-		static DXGI_FORMAT xr_to_dx11_format(RENDER_DEVICE::FORMAT format)
+		static DXGI_FORMAT xr_to_dx11_format(FORMAT format)
 		{
 			switch (format)
 			{

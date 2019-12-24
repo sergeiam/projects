@@ -1,7 +1,11 @@
 #pragma once
 
 #include <math.h>
+#include <float.h>
 #include "core.h"
+
+#undef min
+#undef max
 
 const float PI = 3.14159265359f;
 
@@ -86,6 +90,10 @@ struct Vec3
 	friend Vec3 Max(Vec3 a, Vec3 b) {
 		return Vec3(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y, a.z > b.z ? a.z : b.z);
 	}
+	friend bool operator != (Vec3 a, Vec3 b)
+	{
+		return a.x != b.x || a.y != b.y || a.z != b.z;
+	}
 };
 
 
@@ -152,7 +160,10 @@ struct Box3
 
 	Vec3& min() { return m_min; }
 	Vec3& max() { return m_max; }
-	Vec3 center() { return (m_min + m_max) * 0.5f; }
+
+	Vec3	center() const { return (m_min + m_max) * 0.5f; }
+	Vec3	diag() const { return (m_max - m_min) * 0.5f; }
+	float	radius() const { return length(diag()); }
 
 	void operator += (Vec3 v)
 	{
@@ -166,13 +177,18 @@ struct Box3
 	}
 	void operator += (Box3 b)
 	{
-		if (b.min.x < m_min.x) m_min.x = b.min.x;
-		if (b.min.y < m_min.y) m_min.y = b.min.y;
-		if (b.min.z < m_min.z) m_min.z = b.min.z;
+		if (b.m_min.x < m_min.x) m_min.x = b.m_min.x;
+		if (b.m_min.y < m_min.y) m_min.y = b.m_min.y;
+		if (b.m_min.z < m_min.z) m_min.z = b.m_min.z;
 
-		if (b.max.x > m_max.x) m_max.x = b.max.x;
-		if (b.max.y > m_max.y) m_max.y = b.max.y;
-		if (b.max.z > m_max.z) m_max.z = b.max.z;
+		if (b.m_max.x > m_max.x) m_max.x = b.m_max.x;
+		if (b.m_max.y > m_max.y) m_max.y = b.m_max.y;
+		if (b.m_max.z > m_max.z) m_max.z = b.m_max.z;
+	}
+
+	static Box3 empty()
+	{
+		return Box3(Vec3(FLT_MAX, FLT_MAX, FLT_MAX), Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 	}
 
 private:

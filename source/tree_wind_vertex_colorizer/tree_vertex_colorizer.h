@@ -44,6 +44,10 @@ struct float3
 	{
 		return float3(a.x/b.x, a.y/b.y, a.z/b.z);
 	}
+	float3 operator -()
+	{
+		return float3(-x, -y, -z);
+	}
 	float dot(float3 rhs) const
 	{
 		return x*rhs.x + y*rhs.y + z*rhs.z;
@@ -75,16 +79,28 @@ struct float3
 	}
 };
 
+struct int3
+{
+	int v[3];
+
+	int3() {}
+	int3(int i0, int i1, int i2) { v[0] = i0; v[1] = i1; v[2] = i2; }
+	int3(const int* ptr) { v[0] = ptr[0]; v[1] = ptr[1]; v[2] = ptr[2]; }
+
+	int& operator[](int i) { return v[i]; }
+	int operator[](int i) const { return v[i]; }
+};
+
 struct MeshAdapter
 {
 	int		num_triangles();
-	void	triangle(int i, int& v0, int& v1, int& v2);
-	void	position(int v, float& x, float& y, float& z);
+	int3	get_triangle(int i);
+	float3	get_position(int i);
 
 	void	set_position(int v, float3 value);
 	void	set_normal(int v, float3 value);
-	void	set_color(int v, float r, float g, float b);
-	void	set_triangle(int i, int v0, int v1, int v2);
+	void	set_color(int v, float3 value);
+	void	set_triangle(int i, int3 indices);
 };
 
 template< class T > struct VOLUME
@@ -129,7 +145,7 @@ bool point_vs_triangle(const float3& point, const float3& v0, const float3& v1, 
 	return u < 1.0f && v < 1.0f && w < 1.0f;
 }
 
-template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>& voxels)
+template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>& voxels, float3& scale, float3& pivot)
 {
 	const int xr = voxels.xr, yr = voxels.yr, zr = voxels.zr;
 
@@ -138,22 +154,13 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 	float3 box_min(FLT_MAX, FLT_MAX, FLT_MAX), box_max(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 	int count = 0;
-
 	for (int i = 0; i < ma.num_triangles(); ++i)
 	{
-		int v[3];
-		ma.triangle(i, v[0], v[1], v[2]);
-
-		if (v[0] > count) count = v[0];
-		if (v[1] > count) count = v[1];
-		if (v[2] > count) count = v[2];
-
-		float3 pt[3];
+		int3 v = ma.get_triangle(i);
 		for (int j = 0; j < 3; ++j)
 		{
-			float3 pos;
-			ma.position(v[j], pos.x, pos.y, pos.z);
-			pos.add_to_box(box_min, box_max);
+			cound = std::max( count, v[j]);
+			ma.get_position(v[j]).add_to_box(box_min, box_max);
 		}
 	}
 	count += 1;
@@ -165,6 +172,8 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 	box_max = box_max + box_size * 0.05f;
 	box_size = box_max - box_min;
 
+	scale = box_size;
+	pivot = box_min;
 
 	float3 inv_box_size(1.0f / box_size.x, 1.0f / box_size.y, 1.0f / box_size.z);
 
@@ -172,7 +181,7 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 	for (int i = 0; i < count; ++i)
 	{
 		float3& p = npos[i];
-		ma.position(i, p.x, p.y, p.z);
+		p = ma.get_position(i);
 		p = (p - box_min) * inv_box_size;
 	}
 
@@ -184,8 +193,7 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 
 		for (int i = first; i < last; ++i)
 		{
-			int v[3];
-			ma.triangle(i, v[0], v[1], v[2]);
+			int3 v = ma.get_triangle(i);
 
 			const float3& p0 = npos[v[0]];
 			const float3& p1 = npos[v[1]];
@@ -199,9 +207,9 @@ template< class TMeshAdapter > void mesh_to_voxel(TMeshAdapter& ma, VOLUME<int>&
 			p1.add_to_box(t_min, t_max);
 			p2.add_to_box(t_min, t_max);
 
-			voxels(int(p0.x * xr), int(p0.y * yr), int(p0.z * zr)) = 1;
-			voxels(int(p1.x * xr), int(p1.y * yr), int(p1.z * zr)) = 1;
-			voxels(int(p2.x * xr), int(p2.y * yr), int(p2.z * zr)) = 1;
+			//voxels(int(p0.x * xr), int(p0.y * yr), int(p0.z * zr)) = 1;
+			//voxels(int(p1.x * xr), int(p1.y * yr), int(p1.z * zr)) = 1;
+			//voxels(int(p2.x * xr), int(p2.y * yr), int(p2.z * zr)) = 1;
 
 			for (int z = int(t_min.z * zr), max_z = int(t_max.z * zr); z <= max_z; ++z) {
 				for (int y = int(t_min.y * yr), max_y = int(t_max.y * yr); y <= max_y; ++y) {
@@ -290,46 +298,98 @@ template< class TMeshAdapter > void voxel_to_mesh(VOLUME<int>& voxels, TMeshAdap
 
 template< class TMeshAdapter > void mesh_skeleton(TMeshAdapter& ma, TMeshAdapter& skeleton)
 {
-	float max_edge_sq = 0.0f, max_edge = 0.0f;
-
-	const int histo_size = 32;
-	int histo[histo_size];
-
-	for (int i = 0; i < histo_size; histo[i++] = 0);
-
-	for (int pass = 0; pass < 2; ++pass)
+	int num_vertices = 0;
+	for (int i = 0; i < ma.num_triangles(); ++i)
 	{
-		for (int i = 0; i < ma.num_triangles(); ++i)
-		{
-			int v[3];
-			ma.triangle(i, v[0], v[1], v[2]);
+		int3 v = ma.get_triangle(i);
+		num_vertices = std::max(std::max(num_vertices, v[0]), std::max(v[1], v[2]));
+	}
+	num_vertices++;
 
-			float3 pos[3];
-			for (int j = 0; j < 3; ++j)
-			{
-				ma.position(v[j], pos[j].x, pos[j].y, pos[j].z);
-			}
-			for (int j = 0; j < 3; ++j)
-			{
-				float edge = (pos[j] - pos[(j + 1) % 3]).length_sq();
-				if (pass == 0)
-				{
-					if (edge > max_edge_sq)
-						max_edge_sq = edge;
-				}
-				else
-				{
-					int index = sqrtf(edge) * histo_size / max_edge;
-					if (index == histo_size) index--;
-					histo[index]++;
-				}
-			}
-		}
-		max_edge = sqrtf(max_edge_sq);
+// find max vertex index
+
+	std::vector<int> vertex_remap(num_vertices);
+	for (int i = 0; i < num_vertices; ++i)
+	{
+		vertex_remap[i] = i;
 	}
 
-	for (int i = 0; i < histo_size; ++i)
+// find max edge length
+
+	float max_edge_len_sq = 0.0f;
+	for (int i = 0; i < ma.num_triangles(); ++i)
 	{
-		printf("%d ", histo[i] * 100 / (ma.num_triangles() * 3));
+		int3 v = ma.get_triangle(i);
+		float3 pos[3] = { ma.get_position(v[0]), ma.get_position(v[1]), ma.get_position(v[2]) };
+		max_edge_len_sq = std::max(
+			std::max(max_edge_len_sq, (pos[0] - pos[1]).length_sq()),
+			std::max((pos[1] - pos[2]).length_sq(), (pos[2] - pos[0]).length_sq())
+		);
+	}
+
+// clamp small edges
+
+	std::vector<int> next(num_vertices);
+	std::fill(next.begin(), next.end(), -1);
+
+	const float max_edge_len = sqrtf(max_edge_len_sq);
+	for (int i = 0; i < ma.num_triangles(); ++i)
+	{
+		int3 v = ma.get_triangle(i);
+		v = int3(vertex_remap[v[0]], vertex_remap[v[1]], vertex_remap[v[2]]);
+		float3 pos[3] = { ma.get_position(v[0]), ma.get_position(v[1]), ma.get_position(v[2]) };
+
+		int prev = 2;
+		for (int j = 0; j < 3; prev = j, ++j )
+		{
+			float len_sq = (pos[j] - pos[prev]).length_sq();
+			if (len_sq > 0.0f && len_sq < max_edge_len * 0.3f * 0.3f)
+			{
+				float3 avg = (pos[j] + pos[prev]) * 0.5f;
+				pos[j] = pos[prev] = avg;
+
+				// a < b
+				int a = v[j], b = v[prev];
+				if (a > b) std::swap(a, b);
+
+				// let the whole 'B' island point to 'A' and join them both
+				for (int index = b; b >= 0; b = next[b])
+				{
+					vertex_remap[b] = a;
+				}
+				for (int index = a; next[a] >= 0; a = next[a]);
+				next[a] = b;
+			}
+		}
+	}
+
+// compact all vertex islands into continious index range [0.. number of islands]
+
+	int curr_index = 0;
+	for (int i = 0; i < num_vertices; ++i)
+	{
+		if (vertex_remap[i] < curr_index)
+		{
+			skeleton.set_position(curr_index, ma.get_position(vertex_remap[i]));
+
+			for (int j = i; j >= 0; j = next[j])
+			{
+				vertex_remap[j] = curr_index;
+			}
+			curr_index++;
+		}
+	}
+
+// create only faces that contain at least two different indices
+
+	int num_triangles = 0;
+	for (int i = 0; i < ma.num_triangles(); ++i)
+	{
+		int3 face = ma.get_triangle(i);
+		face = int3(vertex_remap[face[0]], vertex_remap[face[1]], vertex_remap[face[2]]);
+		if (face[0] != face[1] || face[1] != face[2] || face[2] != face[0])
+		{
+			skeleton.set_triangle(num_triangles++, face);
+		}
 	}
 }

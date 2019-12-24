@@ -1,6 +1,7 @@
 #include <xr/mesh.h>
 #include <xr/file.h>
 #include <xr/hash.h>
+#include <algorithm>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -85,19 +86,6 @@ namespace xr
 		}
 	}
 
-	void MESH::compute_vertex_faces()
-	{
-		int n = m_positions.size();
-		m_vertex_faces.resize(n);
-		for (int f = 0; f < n; ++f)
-		{
-			const int i0 = m_faces[f].i0, i1 = m_faces[f].i1, i2 = m_faces[f].i2;
-			m_vertex_faces[i0].push_back(f);
-			m_vertex_faces[i1].push_back(f);
-			m_vertex_faces[i2].push_back(f);
-		}
-	}
-
 	void MESH::compute_vertex_normals()
 	{
 		if (m_face_normals.size() != m_faces.size())
@@ -136,14 +124,25 @@ namespace xr
 
 		m_face_normals.clear();
 		m_vertex_faces.clear();
+		m_materials.clear();
 	}
 
-	bool MESH::write_obj(const char* filename)
+	bool MESH::write_obj(const char* filename, const char* material_file)
 	{
 		FILE* fp = FILE::open(filename, FILE::WRITE | FILE::TRUNC);
 		if (!fp) {
 			log("ERROR: can not create '%s' file!\n", filename);
 			return false;
+		}
+		FILE* fp_mtl = nullptr;
+		if (material_file && !m_materials.empty())
+		{
+			fp_mtl = FILE::open(material_file, FILE::WRITE | FILE::TRUNC);
+			if (!fp_mtl)
+			{
+				log("ERROR: can not create '%s' file!\n", material_file);
+
+			}
 		}
 
 		int face_component = COMPONENT_POS;
@@ -168,12 +167,22 @@ namespace xr
 			}
 			face_component |= COMPONENT_NORMAL;
 		}
+		int prev_material = -1;
+
 		for (size_t i = 0; i < m_faces.size(); ++i)
 		{
 			FACE f = m_faces[i];
 			f.i0++;
 			f.i1++;
 			f.i2++;
+
+			if (fp_mtl && f.id != prev_material && material_file)
+			{
+				if (m_materials[f.id].name.empty())
+					fp->printf("usemtl %d\n", f.id);
+				else
+					fp->printf("usemtl %s\n", m_materials[f.id].name.c_str());
+			}
 
 			switch (face_component)
 			{
@@ -192,6 +201,22 @@ namespace xr
 			}
 		}
 		delete fp;
+
+		if (fp_mtl)
+		{
+			for (int i = 0; i < m_materials.size(); ++i)
+			{
+				const MATERIAL& m = m_materials[i];
+				if (m.name.empty())
+					fp->printf("newmtl %d\n", i);
+				else
+					fp->printf("newmtl %s\n", m.name.c_str());
+				if (m.ambient != Vec3(1, 1, 1)) fp->printf("Ka %0.2f %0.2f %0.2f\n", m.ambient.x, m.ambient.y, m.ambient.z);
+				if (m.diffuse != Vec3(1, 1, 1)) fp->printf("Kd %0.2f %0.2f %0.2f\n", m.diffuse.x, m.diffuse.y, m.diffuse.z);
+				if (m.specular != Vec3(1, 1, 1)) fp->printf("Ks %0.2f %0.2f %0.2f\n", m.specular.x, m.specular.y, m.specular.z);
+			}
+			delete fp_mtl;
+		}
 		return true;
 	}
 
@@ -251,6 +276,7 @@ namespace xr
 			switch (line[0])
 			{
 				case 'v':
+					face_component_mask = 0;
 					if (line[1] == 't') {
 						float u, v;
 						sscanf_s(line + 3, "%f %f", &u, &v);
@@ -276,13 +302,18 @@ namespace xr
 					{
 						face_component_mask = COMPONENT_POS;
 						const char* s1 = strchr(p, '/');
-						if (s1)
+						const char* next_space = strchr(p, ' ');
+						if (s1 && s1 < next_space)
 						{
 							const char* s2 = strchr(s1 + 1, '/');
-							if (s2)
-								face_component_mask |= COMPONENT_NORMAL;
-							if (!s2 || s2 > s1 + 1)
-								face_component_mask |= COMPONENT_UV;
+							if (s2 && s2 < next_space)
+							{
+								if (s2 > s1 + 1)
+									face_component_mask |= COMPONENT_UV;
+								const char* s3 = strchr(s2 + 1, '/');
+								if (s3 > s2 + 1 && s3 < next_space)
+									face_component_mask |= COMPONENT_NORMAL;
+							}
 						}
 					}
 
@@ -580,5 +611,170 @@ namespace xr
 				}
 			}
 		}
+	}
+
+	void MESH::compute_vertex_faces()
+	{
+		m_vertex_faces.clear();
+		m_vertex_faces.resize(m_positions.size());
+
+		for (int i = 0, n = m_faces.size(); i < n; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				int vertex = m_faces[i].i[j];
+
+				auto& vec = m_vertex_faces[vertex];
+
+				int k = 0;
+				for (int kn = vec.size(); k < kn; ++k)
+					if (vec[k] == i) break;
+
+				if (k == vec.size())
+					vec.push_back(i);
+			}
+		}
+	}
+
+	void MESH::compute_vertex_neighbors()
+	{
+		m_vertex_neighbors.clear();
+		m_vertex_neighbors.resize(m_positions.size());
+
+		for (int i = 0, in = m_faces.size(); i < in; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				int vertex = m_faces[i].i[j];
+
+				auto& vec = m_vertex_neighbors[vertex];
+
+				for (int n = 1; n <= 2; ++n)  // iterate both vertex neihbors
+				{
+					int neighbor = m_faces[i].i[(j + n) % 3];
+
+					int k = 0;
+					for (int kn = vec.size(); k < kn; ++k)
+						if (vec[k] == neighbor) break;
+
+					if (k == vec.size())
+						vec.push_back(neighbor);
+				}
+			}
+		}
+	}
+
+	void MESH::add_cube(Vec3 pos, float size, Vec4 color)
+	{
+		const bool add_colors = !m_colors.empty() || m_positions.empty();
+		for (int i = 0; i < 8; ++i)
+		{
+			Vec3 sign((i & 1) ? +1.0f : -1.0f, (i & 2) ? +1.0f : -1.0f, (i & 4) ? +1.0f : -1.0f);
+			m_positions.push_back(pos + sign * size * 0.5f);
+			if (add_colors)
+			{
+				m_colors.push_back(color);
+			}
+		}
+
+		auto add_quad = [this](int a, int b, int c, int d) -> void
+		{
+			m_faces.push_back(FACE(a, b, c));
+			m_faces.push_back(FACE(b, d, c));
+		};
+		add_quad(0, 1, 2, 3);
+		add_quad(5, 4, 7, 6);
+		add_quad(1, 5, 3, 7);
+		add_quad(4, 0, 6, 2);
+		add_quad(0, 1, 4, 5);
+		add_quad(2, 3, 6, 7);
+	}
+
+	Box3 MESH::compute_box_around_faces()
+	{
+		Box3 box = Box3::empty();
+		for (int i = 0; i < m_faces.size(); ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+				box += m_positions[m_faces[i].i[j]];
+		}
+		return box;
+	}
+
+	Box3 MESH::compute_box_around_vertices()
+	{
+		Box3 box = Box3::empty();
+		for (int i = 0; i < m_positions.size(); ++i)
+		{
+			box += m_positions[i];
+		}
+		return box;
+	}
+
+	void MESH::copy_vertices(const MESH& rhs)
+	{
+		m_positions = rhs.m_positions;
+		m_normals = rhs.m_normals;
+		m_uv1 = rhs.m_uv1;
+		m_uv2 = rhs.m_uv2;
+		m_colors = rhs.m_colors;
+	}
+
+	void MESH::quantize_vertices(float pos_eps)
+	{
+		Box3 box = compute_box_around_vertices();
+
+		VECTOR<int>	verts;
+		verts.resize(m_positions.size());
+		for (int i = 0; i < verts.size(); verts[i] = i++);
+
+		auto& positions = m_positions;
+
+		std::sort(verts.begin(), verts.end(), [&positions](int a, int b) -> bool
+		{
+			return positions[a].x < positions[b].x;
+		});
+
+		const float epsilon = box.radius() * pos_eps;
+		const float eps_sq = epsilon * epsilon;
+
+		VECTOR<int> mapping;
+		mapping.resize(m_positions.size());
+		for (int i = 0; i < verts.size(); ++i)
+			verts[i] = i;
+
+		for (int i = 0; i < verts.size(); ++i)
+		{
+			int j;
+			for (j = i + 1; j < verts.size(); ++j)
+			{
+				int vi = verts[i];
+				int vj = verts[j];
+
+				if (positions[vj].x - positions[vi].x > epsilon) break;
+
+				if (length_sq(m_positions[vi] - m_positions[vj]) < eps_sq)
+				{
+					mapping[vj] = vi;
+				}
+			}
+		}
+
+	}
+
+	Vec3 MESH::barycentric_coords(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& p)
+	{
+		Vec3 v0 = b - a, v1 = c - a, v2 = p - a;
+		float d00 = dot(v0, v0);
+		float d01 = dot(v0, v1);
+		float d11 = dot(v1, v1);
+		float d20 = dot(v2, v0);
+		float d21 = dot(v2, v1);
+		float denom = d00 * d11 - d01 * d01;
+
+		float v = (d11 * d20 - d01 * d21) / denom;
+		float w = (d00 * d21 - d01 * d20) / denom;
+
+		return Vec3(1.0f - v - w, v, w);
 	}
 }
