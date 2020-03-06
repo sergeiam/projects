@@ -9,6 +9,19 @@
 	<body>
 		<script src="three.js"></script>
 		<script>
+			var GRASS_FIELD_RESOLUTION = 25;
+			var GRASS_FIELD_SIZE = 15.0;
+			
+			var GRASS_TRAMP_POWER = 0.1;
+			var GRASS_TRAMP_GROW_BACK_SPEED = 0.0005;
+			var GRASS_SPRING_STRENGTH = 0.0125;
+			var GRASS_SPRING_DAMPING = 0.91;
+			var GRASS_SPRING_STICKY_COEF = 0.1;
+			var GRASS_REPULSION = 0.3;
+			var GRASS_RADIUS = 0.5;
+			var CURSOR_RADIUS = 0.6;
+
+		
 			var scene = new THREE.Scene();
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 
@@ -30,30 +43,27 @@
 							"uniform float erect;",
 							"void main() {",
 							"	vec3 pos = position;",
-							"	pos.x += bending.x*max(0.0, pos.y)*erect;",
-							"	pos.z += bending.y*max(0.0, pos.y)*erect;",
+							"	pos.y += 0.5;",
+							"	float bend_coef = pos.y * pos.y * erect;",
+							"	pos.xz += bending.xy * bend_coef;",
 							"	vec4 modelViewPosition = modelViewMatrix * vec4(pos, 1.0);",
 							"	gl_Position = projectionMatrix * modelViewPosition;",
 							"}"
 						].join('\n'),
 						fragmentShader: [
+							"uniform vec2 bending;",
 							"uniform float erect;",
 							"void main() {",
-							"	gl_FragColor = vec4(1.0 - erect, erect, 0.0, 1.0);",
+							"	gl_FragColor = vec4((1.0 - erect)*0.8 + bending.x*0.2, erect, 0.0, 1.0);",
+							"	gl_FragColor.xyz *= 1.0 + length(bending.xy);",
 							"}"
 						].join('\n')
 					});
-					this.mesh = new THREE.Mesh( new THREE.BoxGeometry( 0.2, 1.0, 0.2 ), this.material );
-					this.mesh.position.x = x;
-					this.mesh.position.z = y;
+					this.mesh = new THREE.Mesh( new THREE.CylinderGeometry( 0.02, 0.1, 1.0, 8, 4 ), this.material );
+					this.mesh.position.x = x + Math.random()*0.3;
+					this.mesh.position.z = y + Math.random()*0.3;
 					scene.add( this.mesh );
-					
-					this.GRASS_TRAMP_POWER = 0.1;
-					this.GRASS_TRAMP_GROW_BACK_SPEED = 0.001;
-					this.GRASS_SPRING_STRENGTH = 0.05;
-					this.GRASS_SPRING_DAMPING = 0.91;
-					this.GRASS_SPRING_STICKY_COEF = 0.3;
-					
+				
 					this.position_x = x;
 					this.position_z = y;
 					this.erect = 1.0;
@@ -74,7 +84,7 @@
 					var bz = this.position_z;
 					
 					var dist = Math.sqrt((x - bx)*(x - bx) + (z - bz)*(z - bz));
-					if(dist < 1.0)
+					if(dist < GRASS_RADIUS + CURSOR_RADIUS)
 					{
 						if(tramp)
 						{
@@ -87,16 +97,17 @@
 								var dx = this.position_x - x;
 								var dz = this.position_z - z;
 								var len = Math.sqrt(dx*dx + dz*dz);
-								dx *= 1.0 - len;
-								dz *= 1.0 - len;
+								var both_radii = GRASS_RADIUS + CURSOR_RADIUS;
+								dx *= (both_radii - len) / both_radii * GRASS_REPULSION;
+								dz *= (both_radii - len) / both_radii * GRASS_REPULSION;
 							}
 							
 							// final force is constructed from the movement direction + direct repulsion from the center of the cursor volume
 							vx += dx;
 							vz += dz;
 						
-							this.velocity_x += vx * this.GRASS_SPRING_STICKY_COEF;
-							this.velocity_z += vz * this.GRASS_SPRING_STICKY_COEF;
+							this.velocity_x += vx * GRASS_SPRING_STICKY_COEF;
+							this.velocity_z += vz * GRASS_SPRING_STICKY_COEF;
 						}
 					}
 					this.update();
@@ -115,23 +126,23 @@
 					
 					var hf = Math.sin(x*4.6 + elapsed*24.0)*Math.sin(y*4.4)*(lf1 + lf2);
 				
-					return hf*0.1 + (lf1 + lf2)*0.5;
+					return (hf*0.1 + (lf1 + lf2)*0.5) * 0.5;
 				}
 				update()
 				{
-					this.erect_curr += (this.erect - this.erect_curr)*this.GRASS_TRAMP_POWER;  // gradually reach the real tramped value
-					this.erect = Math.min( 1.0, this.erect + this.GRASS_TRAMP_GROW_BACK_SPEED );  		// grass grow back when being tramped
+					this.erect_curr += (this.erect - this.erect_curr)*GRASS_TRAMP_POWER;  // gradually reach the real tramped value
+					this.erect = Math.min( 1.0, this.erect + GRASS_TRAMP_GROW_BACK_SPEED );  		// grass grow back when being tramped
 					
 					this.mesh.scale.y = this.erect_curr;
 					
 					this.bend_x += this.velocity_x;
 					this.bend_z += this.velocity_z;
 					
-					this.velocity_x -= this.bend_x * this.GRASS_SPRING_STRENGTH;
-					this.velocity_z -= this.bend_z * this.GRASS_SPRING_STRENGTH;
+					this.velocity_x -= this.bend_x * GRASS_SPRING_STRENGTH;
+					this.velocity_z -= this.bend_z * GRASS_SPRING_STRENGTH;
 					
-					this.velocity_x *= this.GRASS_SPRING_DAMPING;
-					this.velocity_z *= this.GRASS_SPRING_DAMPING;
+					this.velocity_x *= GRASS_SPRING_DAMPING;
+					this.velocity_z *= GRASS_SPRING_DAMPING;
 					
 					var bx = this.bend_x + this.wind(this.position_x, this.position_z);
 					var bz = this.bend_z;
@@ -143,17 +154,17 @@
 			}
 			
 			var grass_field = []
-			for( var y=0; y<12; y += 1 )
+			for( var y=0; y<GRASS_FIELD_RESOLUTION; y += 1 )
 			{
-				for( var x=0; x<12; x += 1 )
+				for( var x=0; x<GRASS_FIELD_RESOLUTION; x += 1 )
 				{
-					grass_field.push(new GrassBlade(x * 1.0, y * 1.0));
+					grass_field.push(new GrassBlade(x * GRASS_FIELD_SIZE / GRASS_FIELD_RESOLUTION, y * GRASS_FIELD_SIZE / GRASS_FIELD_RESOLUTION));
 				}
 			}
 			
 			camera.position.z = 13.0;
 			camera.position.y = 4.0;
-			camera.position.x = 4.0;
+			camera.position.x = 6.0;
 			camera.rotation.x = -0.8;
 			
 			var cursor = new THREE.Mesh( new THREE.CylinderGeometry(1.0, 0.7, 1.0, 18.0), new THREE.MeshBasicMaterial());
